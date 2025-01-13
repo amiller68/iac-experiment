@@ -7,14 +7,11 @@ on:
 jobs:
   terraform-plan:
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       id-token: write
       contents: read
     
-    defaults:
-      run:
-        working-directory: ./infrastructure/environments/staging
-
     steps:
       - uses: actions/checkout@v3
 
@@ -28,7 +25,14 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
+        working-directory: ./infrastructure/environments/${{ vars.STAGE_NAME }}
         run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -var-file="terraform.tfvars" -var="database_password=${{ secrets.DATABASE_PASSWORD }}" -var="grafana_admin_password=${{ secrets.GRAFANA_PASSWORD }}" -var="alert_email=${{ secrets.ALERT_EMAIL }}" 
+        working-directory: ./infrastructure/environments/${{ vars.STAGE_NAME }}
+        run: |
+          terraform plan \
+            -var="environment=${{ vars.STAGE_NAME }}" \
+            -var="database_password=${{ secrets.DATABASE_PASSWORD }}" \
+            -var="grafana_admin_password=${{ secrets.GRAFANA_PASSWORD }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}" 

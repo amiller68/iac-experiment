@@ -86,4 +86,120 @@ resource "aws_security_group" "efs" {
   tags = {
     Environment = var.environment
   }
-} 
+}
+
+# SNS Topic for RDS events
+resource "aws_sns_topic" "db_events" {
+  name = "${var.environment}-db-events"
+}
+
+# Allow RDS to publish to SNS topic
+resource "aws_sns_topic_policy" "default" {
+  arn = aws_sns_topic.db_events.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowRDSEvents"
+        Effect = "Allow"
+        Principal = {
+          Service = "events.rds.amazonaws.com"
+        }
+        Action   = "SNS:Publish"
+        Resource = aws_sns_topic.db_events.arn
+      }
+    ]
+  })
+}
+
+# SNS subscription to Lambda
+resource "aws_sns_topic_subscription" "lambda" {
+  topic_arn = aws_sns_topic.db_events.arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.db_migrate.arn
+}
+
+# Create Lambda package
+data "archive_file" "migration_zip" {
+  type        = "zip"
+  output_path = "${path.module}/lambda/migration.zip"
+  source_dir  = "${path.root}/../../packages/database"
+  excludes    = [
+    "Dockerfile",
+    "node_modules",
+    ".env",
+    "package-lock.json"
+  ]
+}
+
+# Null resource to install dependencies
+resource "null_resource" "lambda_dependencies" {
+  triggers = {
+    package_json = filemd5("${path.root}/../../packages/database/package.json")
+    migrations_hash = sha256(join("", [
+      for f in fileset("${path.root}/../../packages/database/migrations", "*.sql") : 
+      filemd5("${path.root}/../../packages/database/migrations/${f}")
+    ]))
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+      cd ${path.root}/../../packages/database && \
+      npm ci --production && \
+      zip -r ${path.module}/lambda/migration.zip node_modules
+    EOF
+  }
+}
+
+# Lambda function for migrations
+resource "aws_lambda_function" "db_migrate" {
+  depends_on = [null_resource.lambda_dependencies]
+  filename         = data.archive_file.migration_zip.output_path
+  source_code_hash = data.archive_file.migration_zip.output_base64sha256
+  function_name    = "${var.environment}-db-migrate"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "src/migrate.migrate"
+  runtime         = "nodejs18.x"
+  timeout         = 30
+
+  environment {
+    variables = {
+      DB_HOST     = aws_db_instance.main.endpoint
+      DB_NAME     = "messages"
+      DB_USER     = "postgres"
+      DB_PASSWORD = var.database_password
+    }
+  }
+
+  vpc_config {
+    subnet_ids         = var.private_subnet_ids
+    security_group_ids = [aws_security_group.lambda_sg.id]
+  }
+}
+
+# CloudWatch Event to trigger migrations on deployment
+resource "aws_cloudwatch_event_rule" "migration_trigger" {
+  name                = "${var.environment}-db-migration-trigger"
+  description         = "Triggers database migrations when files change"
+  schedule_expression = "rate(1 day)"
+
+  # This will make the rule trigger when we update it
+  is_enabled = true
+}
+
+resource "aws_cloudwatch_event_target" "migration_lambda" {
+  rule      = aws_cloudwatch_event_rule.migration_trigger.name
+  target_id = "TriggerMigrationLambda"
+  arn       = aws_lambda_function.db_migrate.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge" {
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.db_migrate.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.migration_trigger.arn
+}
+
+# ... rest of your Lambda IAM roles and security groups ... 

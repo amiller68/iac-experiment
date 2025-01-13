@@ -36,4 +36,14 @@ output "api_service_task_definition" {
 output "web_service_task_definition" {
   description = "Task definition ARN for the web service"
   value       = aws_ecs_task_definition.web_service.arn
+}
+
+output "alb_security_group_id" {
+  description = "Security group ID for the ALB"
+  value       = aws_security_group.alb.id
+}
+
+output "ecs_task_execution_role_arn" {
+  description = "ARN of the ECS task execution role"
+  value       = aws_iam_role.ecs_task_execution.arn
 } 

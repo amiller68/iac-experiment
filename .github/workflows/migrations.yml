@@ -1,0 +1,75 @@
+name: Database Migrations
+
+on:
+  push:
+    paths:
+      - 'packages/database/migrations/**'
+      - 'packages/database/src/migrate.js'
+      - 'packages/database/package.json'
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  update-and-run-migration:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Build Lambda Package
+        run: |
+          cd packages/database
+          npm ci --production
+          zip -r ../../lambda-package.zip .
+
+      - name: Update Lambda Function
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.STAGE_NAME }}-db-migrate \
+            --zip-file fileb://lambda-package.zip
+
+      - name: Wait for Lambda Update
+        run: |
+          aws lambda wait function-updated \
+            --function-name ${{ vars.STAGE_NAME }}-db-migrate
+
+      - name: Check Changed Files
+        id: changed-files
+        run: |
+          echo "Changes detected in:"
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E 'packages/database/(migrations/.*\.sql|src/migrate\.js)' || true
+
+      - name: Trigger Lambda Function
+        run: |
+          aws lambda invoke \
+            --function-name ${{ vars.STAGE_NAME }}-db-migrate \
+            --payload '{}' \
+            --log-type Tail \
+            response.json | tee lambda-response.txt
+
+          # Decode and display CloudWatch logs
+          echo "Lambda Logs:"
+          cat lambda-response.txt | jq -r '.LogResult' | base64 -d
+
+          # Check if the Lambda execution was successful
+          if [ "$(cat response.json | jq -r '.StatusCode')" -ne 200 ]; then
+            echo "Migration failed!"
+            exit 1
+          fi 
