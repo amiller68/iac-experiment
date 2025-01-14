@@ -21,7 +21,7 @@ jobs:
       - uses: dorny/paths-filter@v2
         id: filter
         with:
-          base: 'main'
+          base: ${{ github.ref }}
           filters: |
             api:
               - 'apps/api-service/src/**'
@@ -36,7 +36,8 @@ jobs:
     needs: check-changes
     runs-on: ubuntu-latest
     environment: production
-    
+    if: needs.check-changes.outputs.api_changed == 'true' || needs.check-changes.outputs.web_changed == 'true'
+
     permissions:
       id-token: write
       contents: read
@@ -172,9 +173,10 @@ jobs:
           fi
 
   deploy-services:
-    needs: run-migrations
+    needs: [run-migrations, check-changes]
     runs-on: ubuntu-latest
     environment: production
+    if: needs.check-changes.outputs.api_changed == 'true' || needs.check-changes.outputs.web_changed == 'true'
 
     permissions:
       id-token: write
