@@ -12,10 +12,15 @@
                 "ecr:UploadLayerPart",
                 "ecr:CompleteLayerUpload",
                 "ecr:PutImage",
+                "ecr:DescribeRepositories",
                 "s3:*",
                 "dynamodb:*",
                 "ecs:*",
                 "iam:PassRole",
+                "iam:GetRole",
+                "iam:GetPolicy",
+                "iam:ListRolePolicies",
+                "iam:ListAttachedRolePolicies",
                 "cloudwatch:*",
                 "logs:*",
                 "sns:*",
@@ -24,7 +29,8 @@
                 "elasticloadbalancing:*",
                 "rds:*",
                 "elasticfilesystem:*",
-                "lambda:InvokeFunction"
+                "lambda:InvokeFunction",
+                "events:*"
             ],
             "Resource": "*"
         }
