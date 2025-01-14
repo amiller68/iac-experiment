@@ -31,7 +31,7 @@ resource "aws_security_group" "rds" {
 resource "aws_db_instance" "main" {
   identifier        = "${var.environment}-postgres"
   engine            = "postgres"
-  engine_version    = "13.7"
+  engine_version    = "15"
   instance_class    = var.db_instance_class
   allocated_storage = 20
 
@@ -155,7 +155,8 @@ resource "null_resource" "lambda_dependencies" {
     command = <<EOF
       cd ${path.module}/../../../packages/database && \
       npm ci --production && \
-      zip -r ${path.module}/lambda/migration.zip node_modules
+      mkdir -p ${path.module}/lambda && \
+      zip -r ${path.module}/lambda/migration.zip . -i node_modules/\* migrations/\* src/\* package.json
     EOF
   }
 }
