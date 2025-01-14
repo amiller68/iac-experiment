@@ -12,8 +12,7 @@ jobs:
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
-      # TODO: make this conditional on the presence of migrations, for now just always run
-      database_changed: true
+      database_changed: ${{ steps.filter.outputs.database }}
     
     steps:
       - uses: actions/checkout@v3
@@ -21,6 +20,7 @@ jobs:
       - uses: dorny/paths-filter@v2
         id: filter
         with:
+          base: 'main'
           filters: |
             api:
               - 'apps/api-service/src/**'

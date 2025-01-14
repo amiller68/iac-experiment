@@ -28,6 +28,18 @@ resource "aws_security_group_rule" "rds_api_ingress" {
   protocol                = "tcp"
   source_security_group_id = var.api_service_security_group_id
   security_group_id       = aws_security_group.rds.id
+  description            = "Allow PostgreSQL access from API service"
+}
+
+# Add egress rule for RDS security group
+resource "aws_security_group_rule" "rds_egress" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.rds.id
+  description      = "Allow all outbound traffic"
 }
 
 # RDS Instance

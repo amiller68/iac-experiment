@@ -148,6 +148,11 @@ resource "aws_lb_target_group" "api_service" {
     matcher            = "200"
   }
 
+  stickiness {
+    type = "lb_cookie"
+    enabled = true
+  }
+
   tags = {
     Environment = var.environment
   }
@@ -197,7 +202,7 @@ resource "aws_lb_listener_rule" "api" {
 
   condition {
     path_pattern {
-      values = ["/api/*"]
+      values = ["/api", "/api/*"]
     }
   }
 }
@@ -225,6 +230,25 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# Add policy for Secrets Manager access
+resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
+  name = "${var.environment}-ecs-task-execution-secrets"
+  role = aws_iam_role.ecs_task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [aws_secretsmanager_secret.db_password.arn]
+      }
+    ]
+  })
+}
+
 # ECS Task Definitions
 resource "aws_ecs_task_definition" "api_service" {
   family                   = "${var.environment}-api-service"
@@ -242,12 +266,13 @@ resource "aws_ecs_task_definition" "api_service" {
         {
           containerPort = 3000
           protocol      = "tcp"
+          hostPort     = 3000
         }
       ]
       environment = [
         {
           name  = "DB_HOST"
-          value = var.db_host
+          value = split(":", var.db_host)[0]
         },
         {
           name  = "DB_PORT"
@@ -256,6 +281,10 @@ resource "aws_ecs_task_definition" "api_service" {
         {
           name  = "DB_NAME"
           value = "messages"
+        },
+        {
+          name  = "DB_USER"
+          value = "postgres"
         },
         {
           name  = "BASE_PATH"
@@ -268,6 +297,13 @@ resource "aws_ecs_task_definition" "api_service" {
           valueFrom = aws_secretsmanager_secret_version.db_password.arn
         }
       ]
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      }
       logConfiguration = {
         logDriver = "awslogs"
         options = {
