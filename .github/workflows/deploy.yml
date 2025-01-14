@@ -165,17 +165,19 @@ jobs:
             response.json \
             --query 'LogResult' --output text | base64 -d
 
-          if [ -f response.json ]; then
-            STATUS_CODE=$(cat response.json | jq -r '.StatusCode' || echo "")
-            if [ "$STATUS_CODE" = "200" ]; then
-              echo "Migration completed successfully"
-            else
-              echo "Migration failed! Check the Lambda logs above."
-              exit 1
-            fi
-          else
-            echo "No response file generated!"
+          # Check if the Lambda execution was successful by looking for error keywords in logs
+          LOGS=$(aws lambda invoke \
+            --function-name ${{ vars.STAGE_NAME }}-db-migrate \
+            --payload '{}' \
+            --log-type Tail \
+            response.json \
+            --query 'LogResult' --output text | base64 -d)
+
+          if echo "$LOGS" | grep -i "error\|exception\|failed"; then
+            echo "Migration failed! Check the Lambda logs above."
             exit 1
+          else
+            echo "Migration completed successfully"
           fi
 
   deploy-services:
