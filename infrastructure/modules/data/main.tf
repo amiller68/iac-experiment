@@ -15,16 +15,19 @@ resource "aws_security_group" "rds" {
   description = "Security group for RDS instance"
   vpc_id      = var.vpc_id
 
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [var.api_service_security_group_id]
-  }
-
   tags = {
     Environment = var.environment
   }
+}
+
+# Allow access from API service
+resource "aws_security_group_rule" "rds_api_ingress" {
+  type                     = "ingress"
+  from_port               = 5432
+  to_port                 = 5432
+  protocol                = "tcp"
+  source_security_group_id = var.api_service_security_group_id
+  security_group_id       = aws_security_group.rds.id
 }
 
 # RDS Instance
@@ -42,12 +45,34 @@ resource "aws_db_instance" "main" {
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
+  # Network settings
+  network_type = "IPV4"
+  publicly_accessible = false
+
+  # Security settings
+  iam_database_authentication_enabled = false
+  storage_encrypted = true
+
+  # Parameter group for allowing connections
+  parameter_group_name = aws_db_parameter_group.main.name
+
   backup_retention_period = 7
   multi_az               = var.environment == "prod"
   skip_final_snapshot    = true
 
   tags = {
     Environment = var.environment
+  }
+}
+
+# Create a parameter group for RDS
+resource "aws_db_parameter_group" "main" {
+  name   = "${var.environment}-postgres-params"
+  family = "postgres15"
+
+  parameter {
+    name  = "rds.force_ssl"
+    value = "0"
   }
 }
 
@@ -76,16 +101,19 @@ resource "aws_security_group" "efs" {
   description = "Security group for EFS mount targets"
   vpc_id      = var.vpc_id
 
-  ingress {
-    from_port       = 2049
-    to_port         = 2049
-    protocol        = "tcp"
-    security_groups = [var.web_service_security_group_id]
-  }
-
   tags = {
     Environment = var.environment
   }
+}
+
+# Allow access to EFS from web service
+resource "aws_security_group_rule" "efs_web_ingress" {
+  type                     = "ingress"
+  from_port               = 2049
+  to_port                 = 2049
+  protocol                = "tcp"
+  source_security_group_id = var.web_service_security_group_id
+  security_group_id       = aws_security_group.efs.id
 }
 
 # SNS Topic for RDS events
@@ -138,8 +166,14 @@ data "archive_file" "migration_zip" {
 # Null resource to install dependencies and prepare package
 resource "null_resource" "lambda_dependencies" {
   triggers = {
-    # TODO: better way to do this -- this just ensures that the lambda function is rebuilt on every apply
-    # Always rebuild on every apply
+    # Track Lambda source files and dependencies
+    package_json = filemd5("${path.module}/lambda/package.json")
+    migrate_js = filemd5("${path.module}/../../../packages/database/src/migrate.js")
+    migrations_hash = sha256(join("", [
+      for f in fileset("${path.module}/../../../packages/database/migrations", "*.sql") :
+      filemd5("${path.module}/../../../packages/database/migrations/${f}")
+    ]))
+    # Include timestamp for forced updates during development
     timestamp = timestamp()
   }
 
@@ -180,9 +214,10 @@ resource "aws_lambda_function" "db_migrate" {
   source_code_hash = data.archive_file.migration_zip.output_base64sha256
   function_name    = "${var.environment}-db-migrate"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "src/migrate.js"
+  handler         = "src/migrate.migrate"
   runtime         = "nodejs18.x"
   timeout         = 30
+  memory_size     = 256
 
   environment {
     variables = {
@@ -190,6 +225,7 @@ resource "aws_lambda_function" "db_migrate" {
       DB_NAME     = "messages"
       DB_USER     = "postgres"
       DB_PASSWORD = var.database_password
+      ENVIRONMENT = var.environment
     }
   }
 
@@ -227,6 +263,14 @@ resource "aws_security_group" "lambda_sg" {
   description = "Security group for Lambda functions"
   vpc_id      = var.vpc_id
 
+  # Add ingress rule if needed for debugging
+  ingress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -237,6 +281,16 @@ resource "aws_security_group" "lambda_sg" {
   tags = {
     Environment = var.environment
   }
+}
+
+# Make sure RDS security group allows access from Lambda
+resource "aws_security_group_rule" "rds_lambda_ingress" {
+  type                     = "ingress"
+  from_port               = 5432
+  to_port                 = 5432
+  protocol                = "tcp"
+  source_security_group_id = aws_security_group.lambda_sg.id
+  security_group_id       = aws_security_group.rds.id
 }
 
 # IAM role for Lambda
@@ -281,13 +335,6 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# Add SSM parameter to track migrations
-resource "aws_ssm_parameter" "migration_status" {
-  name  = "/${var.environment}/migration-status"
-  type  = "String"
-  value = "pending"  # Will be updated by Lambda
-}
-
 # Update Lambda function to write to SSM
 resource "aws_iam_role_policy" "lambda_ssm" {
   name = "${var.environment}-lambda-ssm-policy"
@@ -301,8 +348,38 @@ resource "aws_iam_role_policy" "lambda_ssm" {
         Action = [
           "ssm:PutParameter"
         ]
-        Resource = aws_ssm_parameter.migration_status.arn
+        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.environment}/migration-status"
       }
     ]
   })
+}
+
+# Get current region and account ID
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
+# VPC Endpoint for SSM
+resource "aws_vpc_endpoint" "ssm" {
+  vpc_id            = var.vpc_id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.ssm"
+  vpc_endpoint_type = "Interface"
+  
+  subnet_ids = var.private_subnet_ids
+  security_group_ids = [aws_security_group.lambda_sg.id]
+
+  private_dns_enabled = true
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# CloudWatch Log Group for Lambda
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  name              = "/aws/lambda/${var.environment}-db-migrate"
+  retention_in_days = 14
+
+  tags = {
+    Environment = var.environment
+  }
 }

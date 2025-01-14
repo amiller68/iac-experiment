@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   postgres:
-    image: postgres:13
+    image: postgres:15
     environment:
       POSTGRES_DB: messages
       POSTGRES_USER: postgres

@@ -339,9 +339,15 @@ resource "aws_ecs_task_definition" "web_service" {
   }
 }
 
-# Add data source to check migration status
-data "aws_ssm_parameter" "migration_status" {
-  name = "/${var.environment}/migration-status"
+# Create or read SSM parameter for migration status
+resource "aws_ssm_parameter" "migration_status" {
+  name  = var.migration_status_param_name
+  type  = "String"
+  value = "pending"  # Default value
+
+  lifecycle {
+    ignore_changes = [value]  # Ignore changes since Lambda will update it
+  }
 }
 
 # ECS Services
@@ -368,10 +374,11 @@ resource "aws_ecs_service" "api_service" {
     Environment = var.environment
   }
 
-  # Add lifecycle block
+  depends_on = [aws_ssm_parameter.migration_status]
+
   lifecycle {
     precondition {
-      condition     = data.aws_ssm_parameter.migration_status.value == "complete"
+      condition     = aws_ssm_parameter.migration_status.value == "complete"
       error_message = "Database migrations must complete before services can start"
     }
   }
@@ -400,10 +407,11 @@ resource "aws_ecs_service" "web_service" {
     Environment = var.environment
   }
 
-  # Add lifecycle block
+  depends_on = [aws_ssm_parameter.migration_status]
+
   lifecycle {
     precondition {
-      condition     = data.aws_ssm_parameter.migration_status.value == "complete"
+      condition     = aws_ssm_parameter.migration_status.value == "complete"
       error_message = "Database migrations must complete before services can start"
     }
   }

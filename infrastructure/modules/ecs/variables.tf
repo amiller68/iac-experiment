@@ -73,4 +73,9 @@ variable "database_password" {
   description = "Password for database access"
   type        = string
   sensitive   = true
+}
+
+variable "migration_status_param_name" {
+  description = "Name of the migration status SSM parameter"
+  type        = string
 } 

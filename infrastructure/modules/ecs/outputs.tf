@@ -46,4 +46,8 @@ output "alb_security_group_id" {
 output "ecs_task_execution_role_arn" {
   description = "ARN of the ECS task execution role"
   value       = aws_iam_role.ecs_task_execution.arn
+}
+
+output "migration_status_param_name" {
+  value = aws_ssm_parameter.migration_status.name
 } 

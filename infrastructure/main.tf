@@ -64,6 +64,7 @@ module "ecs" {
   api_service_memory = var.api_service_memory
   web_service_cpu    = var.web_service_cpu
   web_service_memory = var.web_service_memory
+  migration_status_param_name = "/${var.environment}/migration-status"
 }
 
 # Monitoring
