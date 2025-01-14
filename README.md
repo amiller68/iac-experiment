@@ -1,212 +1,91 @@
-# AWS Containerized Microservices Infrastructure
+# IAC Experiment
 
-This repository contains a Turborepo monorepo with containerized Express services deployed to AWS Fargate, complete with infrastructure as code and monitoring setup.
+I'm trying to figure out the trade offs between strategies for developing and deploying
+ containerized services using fully bespoke IaC targeting AWS vs. a PaaS like Northflank.
 
-## Project Structure
+This project is an exercise on deploying a simple suite of containerized services and infrastructure following both strategies. We'll end up with the following components:
+- a web service
+- an api service
+- a postgres database
+- a lambda function that can run migrations
 
-```
-.
-├── apps/
-│   ├── web-service/     # Frontend Express service
-│   └── api-service/     # Backend API service
-├── infrastructure/      # Terraform configurations
-├── monitoring/         # Monitoring configurations
-└── scripts/           # Utility scripts
-```
+Check out the live versions of the services here:
+- aws: http://production-alb-2085663325.us-east-1.elb.amazonaws.com/
+- northflank: http://p01--iac-experiment-web-service--7l4b6srpwt2d.code.run
 
-## Prerequisites
+## what are we testing?
 
-- AWS CLI configured with appropriate permissions
-- Node.js 18+
-- Docker
-- Terraform 1.5+
-- pnpm (for Turborepo)
+The goal is to arrive at a more rigourous understanding of what exactly you gain from using a PaaS like Northflank vs. a fully bespoke IaC strategy. We know the latter is going to be more work / more complex more time to a PoC, but if we go with a PaaS, I wonder if we're gonna miss having more control / flexibility / auditability / etc. Therefore, we're gonna define a shared set of requirements that should map on pretty well to either strategy, and evaluate:
+- how well each strategy meets the requirements
+- how much work / time / complexity each strategy requires
+- how much control / flexibility / auditability each strategy provides
+- what the developer experience is like
+- what the infrastructure experience is like
+- etc.
 
-## Local Development
+With that in mind, here are the requirements. Our solution should:
+- expose a web service and api service behind a shared domain name via a load balancer
+  - web should be served at /
+  - api should be served at /api
+  - caveat: it's ok if we have different domain names during local development with docker compose
+- utilize some managed abstraction on container orchestration
+  - note: northflank fully manages k8s for you, we're not going to attempt to do that
+  on AWS, and just opt for ECS Fargate
+- host a postgres database
+  - this should only be accessible from within the VPC by the
+    - api service
+    - and whatever functions / jobs we need to run migrations
+- have a monitoring stack with prometheus and grafana
+  - note: for now this is not a priority in the context of AWS-IaC (taking too much time)
+- implement some sane strategy for running migrations against the database
+  - should be a job we can trigger from ci/cd in response to a new migration being merged into the repo
+- not require any deployment step on the part of developers
+  - deployments should be entirely handled by ci/cd
 
-1. Install dependencies:
+Explicit non-requirements:
+- TLS termination
+- any kind of authentication
+
+## project overview (code)
+
+the project structure is a turbo monorepo structured as follows:
+
+- apps
+  - web-service
+    - a simple express frontend service that hits the api service
+  - api-service
+    - a simple express backend service that hits the database
+- packages
+  - database
+    - a lil js script for running migrations against the database
+    - eventually this could utilize a full-fledged ORM + migrations tool like Prisma (yes I know)
+    - it also contains a folder of migrations that we can run against the database
+
+## a quick note on local development
+
+I implemented a docker composition as a quick sanity check to make sure we can get the services running locally.
+ You can get that up and running right now with:
+
 ```bash
-pnpm install
-```
-
-2. Start local development environment:
-```bash
-# Start Postgres in Docker
-docker compose up db
-
 # Start all services
-pnpm dev
-
-# Or start individual services
-pnpm dev --filter web-service
-pnpm dev --filter api-service
+docker compose up -d
 ```
 
-3. Access local services:
-- Web Service: http://localhost:3000
-- API Service: http://localhost:3001
+This will start up the following services:
+
+- Web Service: http://localhost:3001
+- API Service: http://localhost:3000
+- PostgreSQL: localhost:5432
 - Prometheus: http://localhost:9090
-- Grafana: http://localhost:3100
+- Grafana: http://localhost:3002 (login should be admin/admin)
 
-## Infrastructure Setup
+note: ignore the prometheus and grafana services for now, they ended up not being requirements for our AWS experiment (took too much time)
 
-1. Initialize Terraform:
-```bash
-cd infrastructure
-terraform init
-```
+## AWS-IAC
 
-2. Create a `terraform.tfvars` file:
-```hcl
-environment         = "dev"
-aws_region         = "us-east-1"
-vpc_cidr           = "10.0.0.0/16"
-database_password  = "your-secure-password"
-```
+- ./infrastructure defines the sum total of the infrastructure and services we're going to deploy to AWS
+- ./infrastructure/environments/production is the configuration for the production environment (it's the only environment for now)
 
-3. Apply infrastructure:
-```bash
-terraform plan
-terraform apply
-```
+### Setup
 
-## Deployment
-
-Push changes to trigger the CI/CD pipeline:
-
-```bash
-# Deploy to dev
-git push origin dev
-
-# Deploy to staging
-git push origin staging
-
-# Deploy to production
-git push origin main
-```
-
-## Monitoring
-
-### Logs
-- All service logs are shipped to CloudWatch Logs
-- Log groups follow pattern: /{environment}/{service-name}
-- Structured logging with correlation IDs enabled
-
-### Metrics
-- Prometheus metrics available at /metrics for each service
-- Grafana dashboards pre-configured for:
-  - Service health
-  - Request metrics
-  - Database connections
-  - Container metrics
-
-### Accessing Dashboards
-```bash
-# Get Grafana URL
-aws cloudformation describe-stacks \
-  --stack-name monitoring \
-  --query 'Stacks[0].Outputs[?OutputKey==`GrafanaURL`].OutputValue' \
-  --output text
-```
-
-## Common Tasks
-
-### Adding a New Service
-
-1. Create new service in `apps/`:
-```bash
-cd apps
-mkdir new-service
-cd new-service
-pnpm init
-```
-
-2. Update Terraform configuration:
-```bash
-cd infrastructure/modules/ecs
-# Modify service definitions to include new service
-```
-
-3. Update CI/CD pipeline in `.github/workflows/`
-
-### Database Migrations
-
-```bash
-# Run migrations
-cd apps/api-service
-pnpm migrate up
-
-# Create new migration
-pnpm migrate create my_migration
-```
-
-### Scaling Services
-
-Modify `infrastructure/environments/dev/main.tf`:
-```hcl
-module "ecs" {
-  source = "../../modules/ecs"
-  
-  service_config = {
-    api_service = {
-      desired_count = 3
-      cpu          = 512
-      memory       = 1024
-    }
-  }
-}
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. Container Deployment Failures
-```bash
-# Check service status
-aws ecs describe-services \
-  --cluster main-cluster \
-  --services api-service
-
-# Check container logs
-aws logs get-log-events \
-  --log-group-name /dev/api-service \
-  --log-stream-name <container-id>
-```
-
-2. Database Connection Issues
-```bash
-# Verify security group rules
-aws ec2 describe-security-groups \
-  --group-ids <security-group-id>
-
-# Test database connection
-psql -h <rds-endpoint> -U postgres -d messages
-```
-
-### Getting Help
-
-1. Check CloudWatch logs for errors
-2. Verify Prometheus metrics
-3. Check ECS service events
-4. Review recent infrastructure changes in Terraform state
-
-## Security
-
-- All services run in private subnets
-- RDS accessible only from service subnet
-- Secrets managed through AWS Secrets Manager
-- Regular security group audits recommended
-
-## Contributing
-
-1. Create feature branch
-2. Make changes
-3. Run tests: `pnpm test`
-4. Submit PR
-
-## License
-
-MIT
-
-Would you like me to expand on any section of this README?
+TODO: the rest of this
