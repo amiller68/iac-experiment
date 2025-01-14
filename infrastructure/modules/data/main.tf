@@ -11,17 +11,20 @@ resource "aws_db_subnet_group" "main" {
 
 # RDS Security Group
 resource "aws_security_group" "rds" {
-  name        = "${var.environment}-rds-sg"
+  name        = "${var.environment}-rds-sg-v2"
   description = "Security group for RDS instance"
   vpc_id      = var.vpc_id
 
-  # Add ingress rules inline instead of separate resources
+  # Define ingress rules inline
   ingress {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [var.api_service_security_group_id]
-    description     = "Allow PostgreSQL access from API service"
+    security_groups = [
+      var.api_service_security_group_id,
+      aws_security_group.lambda_sg.id
+    ]
+    description     = "Allow PostgreSQL access from API service and Lambda"
   }
 
   egress {
@@ -30,6 +33,10 @@ resource "aws_security_group" "rds" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow all outbound traffic"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
   tags = {
@@ -47,8 +54,7 @@ resource "aws_db_instance" "main" {
 
   db_name  = "messages"
   username = "postgres"
-  manage_master_user_password = true
-  master_user_secret_kms_key_id = var.kms_key_id
+  password = data.aws_secretsmanager_secret_version.db_password.secret_string
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
@@ -102,10 +108,9 @@ resource "null_resource" "build_lambda" {
   provisioner "local-exec" {
     command = <<-EOT
       mkdir -p ${path.module}/lambda
-      rm -rf ${path.module}/lambda/package
-      mkdir -p ${path.module}/lambda/package
-      cp -r ${path.module}/../../../packages/database/* ${path.module}/lambda/package/
-      cd ${path.module}/lambda/package && npm install --production && cd .. && zip -r function.zip package/
+      rm -rf ${path.module}/lambda/*
+      cp -r ${path.module}/../../../packages/database/* ${path.module}/lambda/
+      cd ${path.module}/lambda && npm install --production && zip -r function.zip .
     EOT
   }
 }
@@ -132,6 +137,7 @@ resource "aws_lambda_function" "db_migrate" {
   handler         = "src/migrate.migrate"
   runtime         = "nodejs18.x"
   timeout         = 300  # 5 minutes
+  memory_size     = 256  # Increase from default 128MB
 
   environment {
     variables = {
@@ -184,34 +190,18 @@ resource "aws_security_group" "lambda_sg" {
   description = "Security group for Lambda functions"
   vpc_id      = var.vpc_id
 
-  # Add ingress rule if needed for debugging
-  ingress {
-    from_port   = -1
-    to_port     = -1
-    protocol    = "icmp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
+  # No ingress rules needed - Lambda only makes outbound connections
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
   }
 
   tags = {
     Environment = var.environment
   }
-}
-
-# Make sure RDS security group allows access from Lambda
-resource "aws_security_group_rule" "rds_lambda_ingress" {
-  type                     = "ingress"
-  from_port               = 5432
-  to_port                 = 5432
-  protocol                = "tcp"
-  source_security_group_id = aws_security_group.lambda_sg.id
-  security_group_id       = aws_security_group.rds.id
 }
 
 # IAM role for Lambda
@@ -270,8 +260,23 @@ resource "aws_iam_role_policy" "lambda_secrets" {
 data "aws_region" "current" {}
 data "aws_caller_identity" "current" {}
 
-# VPC Endpoint for SSM
+# Check for existing VPC endpoints
+data "aws_vpc_endpoint" "existing_ssm" {
+  vpc_id       = var.vpc_id
+  service_name = "com.amazonaws.${data.aws_region.current.name}.ssm"
+  state        = "available"
+}
+
+data "aws_vpc_endpoint" "existing_secretsmanager" {
+  vpc_id       = var.vpc_id
+  service_name = "com.amazonaws.${data.aws_region.current.name}.secretsmanager"
+  state        = "available"
+}
+
+# VPC Endpoint for SSM (only create if it doesn't exist)
 resource "aws_vpc_endpoint" "ssm" {
+  count = data.aws_vpc_endpoint.existing_ssm.id == null ? 1 : 0
+  
   vpc_id            = var.vpc_id
   service_name      = "com.amazonaws.${data.aws_region.current.name}.ssm"
   vpc_endpoint_type = "Interface"
@@ -284,4 +289,27 @@ resource "aws_vpc_endpoint" "ssm" {
   tags = {
     Environment = var.environment
   }
+}
+
+# VPC Endpoint for Secrets Manager (only create if it doesn't exist)
+resource "aws_vpc_endpoint" "secretsmanager" {
+  count = data.aws_vpc_endpoint.existing_secretsmanager.id == null ? 1 : 0
+  
+  vpc_id            = var.vpc_id
+  service_name      = "com.amazonaws.${data.aws_region.current.name}.secretsmanager"
+  vpc_endpoint_type = "Interface"
+  
+  subnet_ids = var.private_subnet_ids
+  security_group_ids = [aws_security_group.lambda_sg.id]
+
+  private_dns_enabled = true
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# Get the password from Secrets Manager
+data "aws_secretsmanager_secret_version" "db_password" {
+  secret_id = var.db_password_secret_arn
 }
