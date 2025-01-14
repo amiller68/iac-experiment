@@ -10,9 +10,10 @@ jobs:
   check-changes:
     runs-on: ubuntu-latest
     outputs:
-      api_changed: ${{ steps.filter.outputs.api }}
-      web_changed: ${{ steps.filter.outputs.web }}
-      database_changed: ${{ steps.filter.outputs.database }}
+      # TODO: Fix this
+      api_changed: true
+      web_changed: true
+      database_changed: true
     
     steps:
       - uses: actions/checkout@v3
