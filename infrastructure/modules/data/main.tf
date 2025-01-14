@@ -138,12 +138,9 @@ data "archive_file" "migration_zip" {
 # Null resource to install dependencies and prepare package
 resource "null_resource" "lambda_dependencies" {
   triggers = {
-    package_json = filemd5("${path.module}/lambda/package.json")
-    migrations_hash = sha256(join("", [
-      for f in fileset("${path.module}/../../../packages/database/migrations", "*.sql") : 
-      filemd5("${path.module}/../../../packages/database/migrations/${f}")
-    ]))
-    migrate_js = filemd5("${path.module}/../../../packages/database/src/migrate.js")
+    # TODO: better way to do this -- this just ensures that the lambda function is rebuilt on every apply
+    # Always rebuild on every apply
+    timestamp = timestamp()
   }
 
   provisioner "local-exec" {
@@ -309,5 +306,3 @@ resource "aws_iam_role_policy" "lambda_ssm" {
     ]
   })
 }
-
-# ... rest of your Lambda IAM roles and security groups ... 

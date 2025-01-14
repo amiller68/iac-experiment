@@ -93,6 +93,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
@@ -127,11 +132,24 @@ jobs:
       contents: read
     
     steps:
+      - uses: actions/checkout@v3
+      
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      # Add step to check Lambda package contents
+      - name: Debug Lambda Package
+        run: |
+          cd infrastructure/modules/data/lambda
+          if [ -f "package.json" ]; then
+            echo "package.json exists"
+            cat package.json
+          else
+            echo "package.json missing!"
+          fi
 
       - name: Run Migrations
         run: |
@@ -139,16 +157,18 @@ jobs:
             --function-name ${{ vars.STAGE_NAME }}-db-migrate \
             --payload '{}' \
             --log-type Tail \
+            --query 'LogResult' --output text | base64 -d \
             response.json | tee lambda-response.txt
 
-          if [ "$(cat response.json | jq -r '.StatusCode')" -eq 200 ]; then
+          STATUS_CODE=$(cat response.json | jq -r '.StatusCode' || echo "")
+          if [ "$STATUS_CODE" = "200" ]; then
             aws ssm put-parameter \
               --name "/${{ vars.STAGE_NAME }}/migration-status" \
               --value "complete" \
               --type String \
               --overwrite
           else
-            echo "Migration failed!"
+            echo "Migration failed! Check the Lambda logs above."
             exit 1
           fi
 
