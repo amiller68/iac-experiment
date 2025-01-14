@@ -94,6 +94,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     
+    permissions:
+      id-token: write
+      contents: read
+    
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
