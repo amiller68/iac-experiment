@@ -13,6 +13,7 @@ declare global {
   }
 }
 
+
 // Initialize Prometheus metrics
 const metrics = {
   requestDuration: new prometheus.Histogram({
