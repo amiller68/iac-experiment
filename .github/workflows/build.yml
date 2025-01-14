@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: production
+      
     permissions:
       id-token: write
       contents: read
@@ -30,7 +32,7 @@ jobs:
       - name: Build and push API service
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: staging-api-service
+          ECR_REPOSITORY: ${{ vars.STAGE_NAME }}-api-service
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./apps/api-service
         run: |
@@ -42,7 +44,7 @@ jobs:
       - name: Build and push Web service
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: staging-web-service
+          ECR_REPOSITORY: ${{ vars.STAGE_NAME }}-web-service
           IMAGE_TAG: ${{ github.sha }}
         working-directory: ./apps/web-service
         run: |

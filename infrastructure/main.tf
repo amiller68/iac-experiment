@@ -10,27 +10,23 @@ provider "aws" {
   }
 }
 
-# Configure backend
 terraform {
-  backend "s3" {
-    bucket         = "iac-experiment-tf-state"
-    key            = "staging/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-state-lock"
-    encrypt        = true
-  }
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.0"
+    }
   }
 }
 
+
 # Networking
 module "networking" {
-  source = "../../modules/networking"
+  source = "./modules/networking"
 
   environment        = var.environment
   aws_region        = var.aws_region
@@ -40,7 +36,7 @@ module "networking" {
 
 # Data Layer
 module "data" {
-  source = "../../modules/data"
+  source = "./modules/data"
 
   environment                  = var.environment
   vpc_id                      = module.networking.vpc_id
@@ -52,7 +48,7 @@ module "data" {
 
 # ECS
 module "ecs" {
-  source = "../../modules/ecs"
+  source = "./modules/ecs"
 
   environment        = var.environment
   aws_region        = var.aws_region
@@ -64,15 +60,15 @@ module "ecs" {
   database_password = var.database_password
   efs_id           = module.data.efs_id
 
-  api_service_cpu    = 512
-  api_service_memory = 1024
-  web_service_cpu    = 512
-  web_service_memory = 1024
+  api_service_cpu    = var.api_service_cpu
+  api_service_memory = var.api_service_memory
+  web_service_cpu    = var.web_service_cpu
+  web_service_memory = var.web_service_memory
 }
 
 # Monitoring
 module "monitoring" {
-  source = "../../modules/monitoring"
+  source = "./modules/monitoring"
 
   environment                = var.environment
   aws_region                = var.aws_region

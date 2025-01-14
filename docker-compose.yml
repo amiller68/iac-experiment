@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.9'
 
 services:
   postgres:
@@ -17,10 +17,11 @@ services:
     build: 
       context: ./apps/api-service
     environment:
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
-      - DB_HOST=${DB_HOST:-postgres}
-      - DB_PORT=${DB_PORT:-5432}
-      - DB_NAME=${DB_NAME:-messages}
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=postgres
+      - DB_NAME=messages
+      - DB_PORT=5432
     ports:
       - "3000:3000"
     depends_on:
@@ -65,6 +66,23 @@ services:
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
     depends_on:
       - prometheus
+
+  database-migrate:
+    build: 
+      context: ./packages/database
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: messages
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_started
+    volumes:
+      - ./packages/database/migrations:/app/migrations
+      - ./packages/database/src:/app/src
+    command: sh -c "sleep 3 && node src/migrate.js"
 
 volumes:
   postgres_data:

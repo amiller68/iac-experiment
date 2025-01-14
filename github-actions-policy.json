@@ -23,7 +23,8 @@
                 "ec2:*",
                 "elasticloadbalancing:*",
                 "rds:*",
-                "elasticfilesystem:*"
+                "elasticfilesystem:*",
+                "lambda:InvokeFunction"
             ],
             "Resource": "*"
         }

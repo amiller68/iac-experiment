@@ -380,10 +380,25 @@ resource "aws_ecs_service" "web_service" {
 
 # Create a secret in AWS Secrets Manager
 resource "aws_secretsmanager_secret" "db_password" {
-  name = "${var.environment}-db-password"
+  name                    = "${var.environment}-db-password"
+  recovery_window_in_days = 0  # Set to 0 to force deletion without waiting
+
+  lifecycle {
+    prevent_destroy = false
+  }
 }
 
+# Add a time delay after secret deletion
+resource "time_sleep" "wait_for_secret_deletion" {
+  depends_on = [aws_secretsmanager_secret.db_password]
+
+  create_duration = "10s"
+}
+
+# Update the secret version to depend on the time delay
 resource "aws_secretsmanager_secret_version" "db_password" {
+  depends_on = [time_sleep.wait_for_secret_deletion]
+  
   secret_id     = aws_secretsmanager_secret.db_password.id
   secret_string = var.database_password
 }
