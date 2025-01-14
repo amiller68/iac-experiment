@@ -120,11 +120,19 @@ resource "aws_sns_topic_subscription" "lambda" {
   endpoint  = aws_lambda_function.db_migrate.arn
 }
 
+# Create Lambda directory if it doesn't exist
+resource "null_resource" "create_lambda_dir" {
+  provisioner "local-exec" {
+    command = "mkdir -p ${path.module}/lambda"
+  }
+}
+
 # Create Lambda package
 data "archive_file" "migration_zip" {
+  depends_on = [null_resource.create_lambda_dir]
   type        = "zip"
   output_path = "${path.module}/lambda/migration.zip"
-  source_dir  = "${path.root}/../../packages/database"
+  source_dir  = "${path.module}/../../../packages/database"
   excludes    = [
     "Dockerfile",
     "node_modules",
@@ -136,16 +144,16 @@ data "archive_file" "migration_zip" {
 # Null resource to install dependencies
 resource "null_resource" "lambda_dependencies" {
   triggers = {
-    package_json = filemd5("${path.root}/../../packages/database/package.json")
+    package_json = filemd5("${path.module}/../../../packages/database/package.json")
     migrations_hash = sha256(join("", [
-      for f in fileset("${path.root}/../../packages/database/migrations", "*.sql") : 
-      filemd5("${path.root}/../../packages/database/migrations/${f}")
+      for f in fileset("${path.module}/../../../packages/database/migrations", "*.sql") : 
+      filemd5("${path.module}/../../../packages/database/migrations/${f}")
     ]))
   }
 
   provisioner "local-exec" {
     command = <<EOF
-      cd ${path.root}/../../packages/database && \
+      cd ${path.module}/../../../packages/database && \
       npm ci --production && \
       zip -r ${path.module}/lambda/migration.zip node_modules
     EOF
@@ -159,7 +167,7 @@ resource "aws_lambda_function" "db_migrate" {
   source_code_hash = data.archive_file.migration_zip.output_base64sha256
   function_name    = "${var.environment}-db-migrate"
   role            = aws_iam_role.lambda_role.arn
-  handler         = "src/migrate.migrate"
+  handler         = "src/migrate.js"
   runtime         = "nodejs18.x"
   timeout         = 30
 
@@ -183,9 +191,7 @@ resource "aws_cloudwatch_event_rule" "migration_trigger" {
   name                = "${var.environment}-db-migration-trigger"
   description         = "Triggers database migrations when files change"
   schedule_expression = "rate(1 day)"
-
-  # This will make the rule trigger when we update it
-  is_enabled = true
+  state              = "ENABLED"
 }
 
 resource "aws_cloudwatch_event_target" "migration_lambda" {
@@ -200,6 +206,66 @@ resource "aws_lambda_permission" "allow_eventbridge" {
   function_name = aws_lambda_function.db_migrate.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.migration_trigger.arn
+}
+
+# Lambda Security Group
+resource "aws_security_group" "lambda_sg" {
+  name        = "${var.environment}-lambda-sg"
+  description = "Security group for Lambda functions"
+  vpc_id      = var.vpc_id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# IAM role for Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.environment}-lambda-migration-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy for Lambda
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "${var.environment}-lambda-migration-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 # ... rest of your Lambda IAM roles and security groups ... 

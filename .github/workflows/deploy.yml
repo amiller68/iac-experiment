@@ -25,9 +25,9 @@ jobs:
       with:
         node-version: '18'
         
-    - name: Build Lambda Function
+    - name: Prepare Database Package
       run: |
-        cd infrastructure/modules/data/lambda
+        cd packages/database
         npm install --production
         
     - name: Setup Terraform
