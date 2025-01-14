@@ -138,28 +138,28 @@ data "archive_file" "migration_zip" {
 # Null resource to install dependencies and prepare package
 resource "null_resource" "lambda_dependencies" {
   triggers = {
-    package_json = filemd5("${path.module}/../../../packages/database/package.json")
+    package_json = filemd5("${path.module}/lambda/package.json")
     migrations_hash = sha256(join("", [
       for f in fileset("${path.module}/../../../packages/database/migrations", "*.sql") : 
       filemd5("${path.module}/../../../packages/database/migrations/${f}")
     ]))
+    migrate_js = filemd5("${path.module}/../../../packages/database/src/migrate.js")
   }
 
   provisioner "local-exec" {
     command = <<EOF
       # Create temp directory
       rm -rf ${path.module}/lambda/package
-      mkdir -p ${path.module}/lambda/package
+      mkdir -p ${path.module}/lambda/package/src
+      mkdir -p ${path.module}/lambda/package/migrations
 
-      # Copy source files
-      cp -r ${path.module}/../../../packages/database/migrations ${path.module}/lambda/package/
-      cp -r ${path.module}/../../../packages/database/src ${path.module}/lambda/package/
-      cp ${path.module}/../../../packages/database/package.json ${path.module}/lambda/package/
-      cp ${path.module}/../../../packages/database/package-lock.json ${path.module}/lambda/package/
+      # Copy only necessary files
+      cp ${path.module}/lambda/package.json ${path.module}/lambda/package/
+      cp ${path.module}/../../../packages/database/src/migrate.js ${path.module}/lambda/package/src/
+      cp ${path.module}/../../../packages/database/migrations/*.sql ${path.module}/lambda/package/migrations/
 
       # Install production dependencies
-      cd ${path.module}/lambda/package && \
-      npm ci --production
+      cd ${path.module}/lambda/package && npm install --production
     EOF
   }
 }
