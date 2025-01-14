@@ -7,8 +7,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
-infrastructure/modules/data/lambda/package/
-infrastructure/modules/data/lambda/migration.zip
+infrastructure/modules/data/lambda
 
 # Environment variables
 .env

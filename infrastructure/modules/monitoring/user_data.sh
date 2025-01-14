@@ -1,43 +1,32 @@
 #!/bin/bash
 set -e
 
-# Update system
+# Install required packages
 yum update -y
-yum install -y docker amazon-cloudwatch-agent
+yum install -y docker aws-cli jq
 
 # Start and enable docker
 systemctl start docker
 systemctl enable docker
 
-# Create directories
+# Create monitoring directories on root volume
 mkdir -p /monitoring/prometheus
 mkdir -p /monitoring/grafana
+
+# Get Grafana password from Secrets Manager
+GRAFANA_PASSWORD=$(aws secretsmanager get-secret-value \
+  --region ${aws_region} \
+  --secret-id ${grafana_admin_secret_arn} \
+  --query SecretString --output text)
+
+# Create Grafana config directories
+mkdir -p /etc/grafana/provisioning/dashboards
+mkdir -p /etc/grafana/provisioning/datasources
+
+# Configure Prometheus
 mkdir -p /etc/prometheus
-mkdir -p /etc/grafana/provisioning/{datasources,dashboards}
-
-# Mount EBS volume
-mkfs -t xfs /dev/xvdf
-mount /dev/xvdf /monitoring
-echo "/dev/xvdf /monitoring xfs defaults,nofail 0 2" >> /etc/fstab
-
-# Create Prometheus config
 cat > /etc/prometheus/prometheus.yml <<'EOF'
 ${prometheus_config}
-EOF
-
-# Create Grafana datasource config
-cat > /etc/grafana/provisioning/datasources/prometheus.yml <<'EOF'
-${grafana_datasource_config}
-EOF
-
-# Create Grafana dashboard config
-cat > /etc/grafana/provisioning/dashboards/dashboards.yaml <<'EOF'
-${grafana_dashboard_config}
-EOF
-
-# Create default dashboard
-cat > /etc/grafana/provisioning/dashboards/request-metrics.json <<'EOF'
-${grafana_dashboard}
 EOF
 
 # Start Prometheus
@@ -45,9 +34,8 @@ docker run -d \
   --name prometheus \
   --restart=unless-stopped \
   -p 9090:9090 \
-  -v /monitoring/prometheus:/prometheus \
   -v /etc/prometheus:/etc/prometheus \
-  --user root \
+  -v /monitoring/prometheus:/prometheus \
   prom/prometheus:v2.42.0
 
 # Start Grafana
@@ -55,10 +43,8 @@ docker run -d \
   --name grafana \
   --restart=unless-stopped \
   -p 3000:3000 \
-  -v /monitoring/grafana:/var/lib/grafana \
-  -v /etc/grafana/provisioning:/etc/grafana/provisioning \
-  -e "GF_SECURITY_ADMIN_PASSWORD=${grafana_admin_password}" \
+  -e "GF_SECURITY_ADMIN_PASSWORD=$GRAFANA_PASSWORD" \
   -e "GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel" \
-  -e "GF_AUTH_ANONYMOUS_ENABLED=false" \
-  -e "GF_SECURITY_ALLOW_EMBEDDING=true" \
+  -v /etc/grafana/provisioning:/etc/grafana/provisioning \
+  -v /monitoring/grafana:/var/lib/grafana \
   grafana/grafana:9.5.2 

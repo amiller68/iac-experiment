@@ -23,10 +23,14 @@ variable "web_service_security_group_id" {
   type        = string
 }
 
-variable "database_password" {
-  description = "Password for RDS instance"
+variable "db_password_secret_arn" {
+  description = "ARN of the secret containing the database password"
   type        = string
-  sensitive   = true
+}
+
+variable "kms_key_id" {
+  description = "KMS key ID for RDS encryption"
+  type        = string
 }
 
 variable "db_instance_class" {

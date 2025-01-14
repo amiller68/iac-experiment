@@ -243,7 +243,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = [aws_secretsmanager_secret.db_password.arn]
+        Resource = [var.db_password_secret_arn]
       }
     ]
   })
@@ -272,7 +272,7 @@ resource "aws_ecs_task_definition" "api_service" {
       environment = [
         {
           name  = "DB_HOST"
-          value = split(":", var.db_host)[0]
+          value = replace(var.db_host, ":5432", "")
         },
         {
           name  = "DB_PORT"
@@ -294,7 +294,7 @@ resource "aws_ecs_task_definition" "api_service" {
       secrets = [
         {
           name      = "DB_PASSWORD"
-          valueFrom = aws_secretsmanager_secret_version.db_password.arn
+          valueFrom = var.db_password_secret_arn
         }
       ]
       healthCheck = {
@@ -344,13 +344,6 @@ resource "aws_ecs_task_definition" "web_service" {
           value = "http://${aws_lb.main.dns_name}/api"
         }
       ]
-      mountPoints = [
-        {
-          sourceVolume  = "static-assets"
-          containerPath = "/app/public"
-          readOnly      = false
-        }
-      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -361,14 +354,6 @@ resource "aws_ecs_task_definition" "web_service" {
       }
     }
   ])
-
-  volume {
-    name = "static-assets"
-    efs_volume_configuration {
-      file_system_id = var.efs_id
-      root_directory = "/"
-    }
-  }
 
   tags = {
     Environment = var.environment
@@ -414,7 +399,7 @@ resource "aws_ecs_service" "api_service" {
 
   lifecycle {
     precondition {
-      condition     = aws_ssm_parameter.migration_status.value == "complete"
+      condition     = !var.enforce_migration_check || aws_ssm_parameter.migration_status.value == "complete"
       error_message = "Database migrations must complete before services can start"
     }
   }
@@ -447,35 +432,10 @@ resource "aws_ecs_service" "web_service" {
 
   lifecycle {
     precondition {
-      condition     = aws_ssm_parameter.migration_status.value == "complete"
+      condition     = !var.enforce_migration_check || aws_ssm_parameter.migration_status.value == "complete"
       error_message = "Database migrations must complete before services can start"
     }
   }
-}
-
-# Create a secret in AWS Secrets Manager
-resource "aws_secretsmanager_secret" "db_password" {
-  name                    = "${var.environment}-db-password"
-  recovery_window_in_days = 0  # Set to 0 to force deletion without waiting
-
-  lifecycle {
-    prevent_destroy = false
-  }
-}
-
-# Add a time delay after secret deletion
-resource "time_sleep" "wait_for_secret_deletion" {
-  depends_on = [aws_secretsmanager_secret.db_password]
-
-  create_duration = "10s"
-}
-
-# Update the secret version to depend on the time delay
-resource "aws_secretsmanager_secret_version" "db_password" {
-  depends_on = [time_sleep.wait_for_secret_deletion]
-  
-  secret_id     = aws_secretsmanager_secret.db_password.id
-  secret_string = var.database_password
 }
 
 # Add permissions to ECS task execution role
@@ -494,8 +454,32 @@ resource "aws_iam_policy" "secrets_access" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = [aws_secretsmanager_secret.db_password.arn]
+        Resource = [var.db_password_secret_arn]
       }
     ]
   })
+}
+
+# Add auto-scaling configuration
+resource "aws_appautoscaling_target" "api_service" {
+  max_capacity       = 4
+  min_capacity       = 1
+  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.api_service.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+resource "aws_appautoscaling_policy" "api_service_cpu" {
+  name               = "${var.environment}-api-service-cpu"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.api_service.resource_id
+  scalable_dimension = aws_appautoscaling_target.api_service.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.api_service.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    target_value = 75.0
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+  }
 } 

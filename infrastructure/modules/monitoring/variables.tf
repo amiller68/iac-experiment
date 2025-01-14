@@ -62,14 +62,8 @@ variable "grafana_memory" {
   default     = 512
 }
 
-variable "grafana_admin_password" {
-  description = "Admin password for Grafana"
-  type        = string
-  sensitive   = true
-}
-
-variable "efs_id" {
-  description = "ID of the EFS filesystem"
+variable "grafana_admin_secret_arn" {
+  description = "ARN of the secret containing the Grafana admin password"
   type        = string
 }
 
@@ -94,4 +88,29 @@ variable "monitoring_volume_size" {
   description = "Size of the monitoring data volume in GB"
   type        = string
   default     = "100"
+}
+
+variable "api_service_security_group_id" {
+  description = "Security group ID of the API service"
+  type        = string
+}
+
+variable "web_service_security_group_id" {
+  description = "Security group ID of the web service"
+  type        = string
+}
+
+variable "alb_arn_suffix" {
+  description = "ARN suffix of the ALB"
+  type        = string
+}
+
+variable "api_target_group_arn_suffix" {
+  description = "ARN suffix of the API service target group"
+  type        = string
+}
+
+variable "web_target_group_arn_suffix" {
+  description = "ARN suffix of the web service target group"
+  type        = string
 } 

@@ -50,4 +50,19 @@ output "ecs_task_execution_role_arn" {
 
 output "migration_status_param_name" {
   value = aws_ssm_parameter.migration_status.name
+}
+
+output "alb_arn_suffix" {
+  description = "ARN suffix of the ALB"
+  value       = aws_lb.main.arn_suffix
+}
+
+output "api_target_group_arn_suffix" {
+  description = "ARN suffix of the API service target group"
+  value       = aws_lb_target_group.api_service.arn_suffix
+}
+
+output "web_target_group_arn_suffix" {
+  description = "ARN suffix of the web service target group"
+  value       = aws_lb_target_group.web_service.arn_suffix
 } 
