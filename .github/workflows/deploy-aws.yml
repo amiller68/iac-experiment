@@ -146,17 +146,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
 
-      # Add step to check Lambda package contents
-      - name: Debug Lambda Package
-        run: |
-          cd infrastructure/modules/data/lambda
-          if [ -f "package.json" ]; then
-            echo "package.json exists"
-            cat package.json
-          else
-            echo "package.json missing!"
-          fi
-
       - name: Run Migrations
         run: |
           aws lambda invoke \
