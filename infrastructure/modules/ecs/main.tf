@@ -339,6 +339,11 @@ resource "aws_ecs_task_definition" "web_service" {
   }
 }
 
+# Add data source to check migration status
+data "aws_ssm_parameter" "migration_status" {
+  name = "/${var.environment}/migration-status"
+}
+
 # ECS Services
 resource "aws_ecs_service" "api_service" {
   name            = "api-service"
@@ -361,6 +366,14 @@ resource "aws_ecs_service" "api_service" {
 
   tags = {
     Environment = var.environment
+  }
+
+  # Add lifecycle block
+  lifecycle {
+    precondition {
+      condition     = data.aws_ssm_parameter.migration_status.value == "complete"
+      error_message = "Database migrations must complete before services can start"
+    }
   }
 }
 
@@ -385,6 +398,14 @@ resource "aws_ecs_service" "web_service" {
 
   tags = {
     Environment = var.environment
+  }
+
+  # Add lifecycle block
+  lifecycle {
+    precondition {
+      condition     = data.aws_ssm_parameter.migration_status.value == "complete"
+      error_message = "Database migrations must complete before services can start"
+    }
   }
 }
 

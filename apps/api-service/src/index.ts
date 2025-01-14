@@ -142,8 +142,8 @@ app.get(`${basePath}/messages`, async (req, res) => {
   }
 });
 
-// Health check endpoint for ECS
-app.get('/health', async (req, res) => {
+// Add this function before the route definitions
+async function handleHealthCheck(req: express.Request, res: express.Response) {
   try {
     // Test database connection
     await pool.query('SELECT 1');
@@ -169,13 +169,13 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-});
+}
+
+// Health check endpoint for ECS
+app.get('/health', handleHealthCheck);
 
 // Health check endpoint with base path for external requests
-app.get(`${basePath}/health`, async (req, res) => {
-  // Reuse the same health check logic
-  await handleHealthCheck(req, res);
-});
+app.get(`${basePath}/health`, handleHealthCheck);
 
 logger.info('Starting API service with configuration', {
   basePath: process.env.BASE_PATH,

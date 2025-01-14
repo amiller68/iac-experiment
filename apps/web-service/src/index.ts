@@ -145,6 +145,19 @@ app.get('/', (req, res) => {
   }
 });
 
+// Add this function before the route definitions
+async function handleHealthCheck(req: express.Request, res: express.Response) {
+  metrics.requestCount.inc({ method: 'GET', route: '/health', status_code: 200 });
+  
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+}
+
+// Health check endpoint for ECS
+app.get('/health', handleHealthCheck);
+
 const port = process.env.PORT || 3001;
 app.listen(port, () => {
   logger.info(`Web Service listening on port ${port}`);

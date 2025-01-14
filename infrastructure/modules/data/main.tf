@@ -284,4 +284,30 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
+# Add SSM parameter to track migrations
+resource "aws_ssm_parameter" "migration_status" {
+  name  = "/${var.environment}/migration-status"
+  type  = "String"
+  value = "pending"  # Will be updated by Lambda
+}
+
+# Update Lambda function to write to SSM
+resource "aws_iam_role_policy" "lambda_ssm" {
+  name = "${var.environment}-lambda-ssm-policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:PutParameter"
+        ]
+        Resource = aws_ssm_parameter.migration_status.arn
+      }
+    ]
+  })
+}
+
 # ... rest of your Lambda IAM roles and security groups ... 

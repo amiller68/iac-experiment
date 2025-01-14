@@ -1,4 +1,4 @@
-name: Deploy Infrastructure
+name: Deploy Infrastructure and Services
 
 on:
   push:
@@ -7,53 +7,114 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-infrastructure:
     runs-on: ubuntu-latest
     environment: production
     
-    # Add permissions for OIDC
     permissions:
       id-token: write
       contents: read
     
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/production
+        run: terraform init
+
+      # First apply - everything except ECS services
+      - name: Terraform Apply Infrastructure
+        working-directory: infrastructure/environments/production
+        run: |
+          terraform apply -auto-approve \
+            -target=module.networking \
+            -target=module.data \
+            -target=module.monitoring \
+            -target=module.ecs.aws_ecs_cluster.main \
+            -target=module.ecs.aws_ecs_task_definition.api_service \
+            -target=module.ecs.aws_ecs_task_definition.web_service
+        env:
+          TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+
+  run-migrations:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    environment: production
     
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-        aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-        
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        
-    - name: Prepare Database Package
-      run: |
-        cd packages/database
-        npm install --production
-        
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Run Migrations
+        run: |
+          aws lambda invoke \
+            --function-name ${{ vars.STAGE_NAME }}-db-migrate \
+            --payload '{}' \
+            --log-type Tail \
+            response.json | tee lambda-response.txt
+
+          # Check migration success
+          if [ "$(cat response.json | jq -r '.StatusCode')" -eq 200 ]; then
+            # Update SSM parameter on success
+            aws ssm put-parameter \
+              --name "/${{ vars.STAGE_NAME }}/migration-status" \
+              --value "complete" \
+              --type String \
+              --overwrite
+          else
+            echo "Migration failed!"
+            exit 1
+          fi
+
+  deploy-services:
+    needs: run-migrations
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v3
       
-    - name: Terraform Init
-      working-directory: ./infrastructure/environments/production
-      run: |
-        terraform init \
-          -backend-config=backend.hcl
-        
-    - name: Terraform Plan
-      working-directory: ./infrastructure/environments/production
-      run: |
-        terraform plan \
-          -var="database_password=${{ secrets.DATABASE_PASSWORD }}" \
-          -var="grafana_admin_password=${{ secrets.GRAFANA_PASSWORD }}" \
-          -var="alert_email=${{ secrets.ALERT_EMAIL }}" \
-          -out=tfplan
-      
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main'
-      working-directory: ./infrastructure/environments/production
-      run: terraform apply -auto-approve tfplan 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/production
+        run: terraform init
+
+      # Final apply - just the services
+      - name: Deploy Services
+        working-directory: infrastructure/environments/production
+        run: |
+          terraform apply -auto-approve \
+            -target=module.ecs.aws_ecs_service.api_service \
+            -target=module.ecs.aws_ecs_service.web_service
+        env:
+          TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
+          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
+
+      - name: Wait for Services to Stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster ${{ vars.STAGE_NAME }}-cluster \
+            --services api-service web-service 
