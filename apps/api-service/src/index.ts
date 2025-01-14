@@ -78,8 +78,11 @@ app.get('/metrics', async (req, res) => {
   res.send(await prometheus.register.metrics());
 });
 
+// Add a base path prefix to all routes
+const basePath = process.env.BASE_PATH || '';
+
 // Message endpoints
-app.post('/messages', async (req, res) => {
+app.post(`${basePath}/messages`, async (req, res) => {
   const startTime = Date.now();
   try {
     const { message } = req.body;
@@ -93,7 +96,7 @@ app.post('/messages', async (req, res) => {
       messageId: result.rows[0].id
     });
 
-    metrics.requestCount.inc({ method: 'POST', route: '/messages', status_code: 200 });
+    metrics.requestCount.inc({ method: 'POST', route: `/messages`, status_code: 200 });
     res.json(result.rows[0]);
   } catch (error) {
     logger.error('Error creating message', {
@@ -101,17 +104,17 @@ app.post('/messages', async (req, res) => {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
     
-    metrics.errorCount.inc({ method: 'POST', route: '/messages' });
+    metrics.errorCount.inc({ method: 'POST', route: `/messages` });
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     metrics.requestDuration.observe(
-      { method: 'POST', route: '/messages', status_code: res.statusCode },
+      { method: 'POST', route: `/messages`, status_code: res.statusCode },
       (Date.now() - startTime) / 1000
     );
   }
 });
 
-app.get('/messages', async (req, res) => {
+app.get(`${basePath}/messages`, async (req, res) => {
   const startTime = Date.now();
   try {
     const result = await pool.query('SELECT * FROM messages ORDER BY created_at DESC');
@@ -121,7 +124,7 @@ app.get('/messages', async (req, res) => {
       count: result.rows.length
     });
 
-    metrics.requestCount.inc({ method: 'GET', route: '/messages', status_code: 200 });
+    metrics.requestCount.inc({ method: 'GET', route: `/messages`, status_code: 200 });
     res.json(result.rows);
   } catch (error) {
     logger.error('Error retrieving messages', {
@@ -129,14 +132,54 @@ app.get('/messages', async (req, res) => {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
     
-    metrics.errorCount.inc({ method: 'GET', route: '/messages' });
+    metrics.errorCount.inc({ method: 'GET', route: `/messages` });
     res.status(500).json({ error: 'Internal server error' });
   } finally {
     metrics.requestDuration.observe(
-      { method: 'GET', route: '/messages', status_code: res.statusCode },
+      { method: 'GET', route: `/messages`, status_code: res.statusCode },
       (Date.now() - startTime) / 1000
     );
   }
+});
+
+// Health check endpoint for ECS
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    await pool.query('SELECT 1');
+    
+    metrics.requestCount.inc({ method: 'GET', route: '/health', status_code: 200 });
+    
+    res.status(200).json({ 
+      status: 'healthy',
+      database: 'connected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Health check failed', {
+      correlationId: req.correlationId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
+    metrics.errorCount.inc({ method: 'GET', route: '/health' });
+    
+    res.status(503).json({ 
+      status: 'unhealthy',
+      database: 'disconnected',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Health check endpoint with base path for external requests
+app.get(`${basePath}/health`, async (req, res) => {
+  // Reuse the same health check logic
+  await handleHealthCheck(req, res);
+});
+
+logger.info('Starting API service with configuration', {
+  basePath: process.env.BASE_PATH,
+  port: process.env.PORT || 3000,
 });
 
 const port = process.env.PORT || 3000;

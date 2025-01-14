@@ -129,19 +129,13 @@ resource "null_resource" "create_lambda_dir" {
 
 # Create Lambda package
 data "archive_file" "migration_zip" {
-  depends_on = [null_resource.create_lambda_dir]
+  depends_on  = [null_resource.lambda_dependencies]
   type        = "zip"
   output_path = "${path.module}/lambda/migration.zip"
-  source_dir  = "${path.module}/../../../packages/database"
-  excludes    = [
-    "Dockerfile",
-    "node_modules",
-    ".env",
-    "package-lock.json"
-  ]
+  source_dir  = "${path.module}/lambda/package"
 }
 
-# Null resource to install dependencies
+# Null resource to install dependencies and prepare package
 resource "null_resource" "lambda_dependencies" {
   triggers = {
     package_json = filemd5("${path.module}/../../../packages/database/package.json")
@@ -153,11 +147,32 @@ resource "null_resource" "lambda_dependencies" {
 
   provisioner "local-exec" {
     command = <<EOF
-      cd ${path.module}/../../../packages/database && \
-      npm ci --production && \
-      mkdir -p ${path.module}/lambda && \
-      zip -r ${path.module}/lambda/migration.zip . -i node_modules/\* migrations/\* src/\* package.json
+      # Create temp directory
+      rm -rf ${path.module}/lambda/package
+      mkdir -p ${path.module}/lambda/package
+
+      # Copy source files
+      cp -r ${path.module}/../../../packages/database/migrations ${path.module}/lambda/package/
+      cp -r ${path.module}/../../../packages/database/src ${path.module}/lambda/package/
+      cp ${path.module}/../../../packages/database/package.json ${path.module}/lambda/package/
+      cp ${path.module}/../../../packages/database/package-lock.json ${path.module}/lambda/package/
+
+      # Install production dependencies
+      cd ${path.module}/lambda/package && \
+      npm ci --production
     EOF
+  }
+}
+
+# Clean up Lambda artifacts directory
+resource "null_resource" "cleanup_lambda" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "rm -rf ${path.module}/lambda"
+    when    = destroy
   }
 }
 

@@ -143,6 +143,9 @@ resource "aws_lb_target_group" "api_service" {
     path                = "/health"
     healthy_threshold   = 2
     unhealthy_threshold = 10
+    interval            = 30
+    timeout             = 5
+    matcher            = "200"
   }
 
   tags = {
@@ -161,6 +164,9 @@ resource "aws_lb_target_group" "web_service" {
     path                = "/health"
     healthy_threshold   = 2
     unhealthy_threshold = 10
+    interval            = 30
+    timeout             = 5
+    matcher            = "200"
   }
 
   tags = {
@@ -250,6 +256,10 @@ resource "aws_ecs_task_definition" "api_service" {
         {
           name  = "DB_NAME"
           value = "messages"
+        },
+        {
+          name  = "BASE_PATH"
+          value = "/api"
         }
       ]
       secrets = [
