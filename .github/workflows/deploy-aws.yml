@@ -11,9 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       # TODO: Fix this
-      api_changed: true
-      web_changed: true
-      database_changed: true
+      api_changed: ${{ steps.filter.outputs.api }}
+      web_changed: ${{ steps.filter.outputs.web }}
+      database_changed: ${{ steps.filter.outputs.database }}
     
     steps:
       - uses: actions/checkout@v3
@@ -145,6 +145,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
 
       - name: Run Migrations
         run: |
