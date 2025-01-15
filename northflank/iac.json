@@ -1,0 +1,239 @@
+{
+  "apiVersion": "v1.2",
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "steps": [
+        {
+          "kind": "Project",
+          "spec": {
+            "name": "iac-experiment",
+            "color": "#6F2DBD",
+            "region": "us-central",
+            "networking": {
+              "allowedIngressProjects": []
+            }
+          },
+          "ref": "iac-experiment"
+        },
+        {
+          "kind": "Workflow",
+          "spec": {
+            "type": "sequential",
+            "steps": [
+              {
+                "kind": "Addon",
+                "spec": {
+                  "externalAccessEnabled": false,
+                  "type": "postgresql",
+                  "billing": {
+                    "replicas": 1,
+                    "storage": 4096,
+                    "storageClass": "ssd",
+                    "deploymentPlan": "nf-compute-50"
+                  },
+                  "tlsEnabled": true,
+                  "typeSpecificSettings": {
+                    "postgresqlConnectionPoolerReplicas": 2,
+                    "postgresqlReadConnectionPoolerReplicas": 2
+                  },
+                  "name": "Postgres",
+                  "version": "16",
+                  "projectId": "${refs.iac-experiment.id}"
+                },
+                "ref": "postgres"
+              },
+              {
+                "kind": "SecretGroup",
+                "spec": {
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "secrets": {
+                    "variables": {},
+                    "files": {}
+                  },
+                  "addonDependencies": [
+                    {
+                      "addonId": "${refs.postgres.id}",
+                      "keys": [
+                        {
+                          "keyName": "POSTGRES_URI",
+                          "aliases": [
+                            "DB_URI"
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "SecretGroup",
+                  "restrictions": {
+                    "restricted": false,
+                    "nfObjects": [],
+                    "tags": []
+                  },
+                  "projectId": "${refs.iac-experiment.id}"
+                },
+                "ref": "secretgroup"
+              },
+              {
+                "kind": "CombinedService",
+                "spec": {
+                  "deployment": {
+                    "instances": 1,
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    },
+                    "docker": {
+                      "configType": "default"
+                    }
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "billing": {
+                    "deploymentPlan": "nf-compute-10",
+                    "buildPlan": "nf-compute-400-16"
+                  },
+                  "name": "ApiService",
+                  "vcsData": {
+                    "projectType": "github",
+                    "accountLogin": "amiller68",
+                    "projectUrl": "https://github.com/amiller68/iac-experiment",
+                    "projectBranch": "main"
+                  },
+                  "ports": [
+                    {
+                      "internalPort": 3000,
+                      "protocol": "HTTP",
+                      "name": "p01",
+                      "public": true,
+                      "domains": [],
+                      "security": {
+                        "policies": [],
+                        "credentials": []
+                      },
+                      "disableNfDomain": false
+                    }
+                  ],
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "kaniko",
+                      "useCache": false,
+                      "dockerWorkDir": "/apps/api-service",
+                      "dockerFilePath": "/apps/api-service/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": false,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "disabledCI": false,
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": false
+                  },
+                  "projectId": "${refs.iac-experiment.id}"
+                },
+                "ref": "apiservice"
+              },
+              {
+                "kind": "CombinedService",
+                "spec": {
+                  "deployment": {
+                    "instances": 1,
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    },
+                    "docker": {
+                      "configType": "default"
+                    }
+                  },
+                  "runtimeEnvironment": {
+                    "API_URL": "${refs.apiservice.ports.0.dns}"
+                  },
+                  "runtimeFiles": {},
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "billing": {
+                    "deploymentPlan": "nf-compute-10",
+                    "buildPlan": "nf-compute-400-16"
+                  },
+                  "name": "WebService",
+                  "vcsData": {
+                    "projectType": "github",
+                    "accountLogin": "amiller68",
+                    "projectUrl": "https://github.com/amiller68/iac-experiment",
+                    "projectBranch": "main"
+                  },
+                  "ports": [
+                    {
+                      "internalPort": 3001,
+                      "public": true,
+                      "protocol": "HTTP",
+                      "name": "p01",
+                      "domains": [],
+                      "security": {
+                        "sso": {},
+                        "policies": [],
+                        "credentials": [],
+                        "verificationMode": "or"
+                      },
+                      "disableNfDomain": false
+                    }
+                  ],
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "kaniko",
+                      "useCache": false,
+                      "dockerWorkDir": "/apps/web-service",
+                      "dockerFilePath": "/apps/web-service/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": false,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "disabledCI": false,
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": false
+                  }
+                },
+                "ref": "webservice"
+              }
+            ],
+            "context": {
+              "projectId": "${refs.iac-experiment.id}"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "name": "iac-experiment-template-v0",
+  "description": "",
+  "options": {
+    "autorun": true,
+    "concurrencyPolicy": "allow",
+    "runOnUpdate": false
+  },
+  "gitops": {
+    "repoUrl": "https://github.com/amiller68/iac-experiment",
+    "vcsService": "github",
+    "accountLogin": "amiller68",
+    "branch": "main",
+    "filePath": "/northflank/iac.json"
+  },
+  "$schema": "https://api.northflank.com/v1/schemas/template"
+}
