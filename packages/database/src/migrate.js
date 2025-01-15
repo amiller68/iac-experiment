@@ -31,9 +31,7 @@ exports.migrate = async function() {
   const uri = process.env.DB_URI
   let client
   if (uri) {
-    // TODO: remove this asap
-    console.log('Using DB_URI:', uri)
-    client = new Client({ uri })
+    client = new Client({ connectionString: uri })
   } else {
     client = new Client({
       host: process.env.DB_HOST.split(':')[0],
