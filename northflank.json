@@ -1,0 +1,85 @@
+{
+  "apiVersion": "v1.2",
+  "spec": {
+    "kind": "Workflow",
+    "spec": {
+      "type": "sequential",
+      "steps": [
+        {
+          "kind": "BuildService",
+          "spec": {
+            "buildArguments": {
+              "API_URL": "https://will-fill-in-later.com"
+            },
+            "buildFiles": {},
+            "billing": {
+              "buildPlan": "nf-compute-400-16"
+            },
+            "name": "iac-experiment-builder",
+            "vcsData": {
+              "projectType": "github",
+              "accountLogin": "amiller68",
+              "projectUrl": "https://github.com/amiller68/iac-experiment"
+            },
+            "buildConfiguration": {
+              "prRestrictions": [
+                "*",
+                "feat/*"
+              ],
+              "branchRestrictions": [
+                "main"
+              ]
+            },
+            "buildSettings": {
+              "dockerfile": {
+                "buildEngine": "kaniko",
+                "useCache": false,
+                "dockerWorkDir": "/apps/web-service",
+                "dockerFilePath": "/apps/web-service/Dockerfile",
+                "buildkit": {
+                  "useInternalCache": false,
+                  "internalCacheStorage": 16384
+                }
+              }
+            },
+            "disabledCI": false
+          },
+          "ref": "iac-experiment-builder"
+        },
+        {
+          "kind": "Project",
+          "ref": "project",
+          "spec": {
+            "name": "iac-experiment",
+            "region": "us-central"
+          }
+        },
+        {
+          "kind": "Workflow",
+          "spec": {
+            "type": "sequential",
+            "context": {
+              "projectId": "${refs.project.id}"
+            },
+            "steps": []
+          }
+        }
+      ]
+    }
+  },
+  "name": "iac-experiment-template",
+  "description": "",
+  "options": {
+    "autorun": true,
+    "concurrencyPolicy": "allow",
+    "runOnUpdate": false
+  },
+  "gitops": {
+    "repoUrl": "https://github.com/amiller68/iac-experiment",
+    "vcsService": "github",
+    "accountLogin": "amiller68",
+    "branch": "main",
+    "filePath": "/northflank.json"
+  },
+  "$schema": "https://api.northflank.com/v1/schemas/template"
+}
