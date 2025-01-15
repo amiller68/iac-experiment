@@ -78,6 +78,58 @@
                 "ref": "secretgroup"
               },
               {
+                "kind": "ManualJob",
+                "spec": {
+                  "runOnSourceChange": "always",
+                  "backoffLimit": 0,
+                  "activeDeadlineSeconds": 600,
+                  "deployment": {
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    },
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "vcs": {
+                      "projectType": "github",
+                      "accountLogin": "amiller68",
+                      "projectUrl": "https://github.com/amiller68/iac-experiment",
+                      "projectBranch": "main"
+                    }
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "billing": {
+                    "deploymentPlan": "nf-compute-10",
+                    "buildPlan": "nf-compute-400-16"
+                  },
+                  "name": "db-migrate",
+                  "buildArguments": {},
+                  "buildFiles": {},
+                  "buildSettings": {
+                    "dockerfile": {
+                      "buildEngine": "kaniko",
+                      "useCache": false,
+                      "dockerWorkDir": "/packages/database",
+                      "dockerFilePath": "/packages/database/Dockerfile",
+                      "buildkit": {
+                        "useInternalCache": false,
+                        "internalCacheStorage": 16384
+                      }
+                    }
+                  },
+                  "buildConfiguration": {
+                    "pathIgnoreRules": [],
+                    "isAllowList": false,
+                    "ciIgnoreFlagsEnabled": false
+                  }
+                },
+                "ref": "db-migrate"
+              },
+              {
                 "kind": "CombinedService",
                 "spec": {
                   "deployment": {
@@ -139,7 +191,20 @@
                     "isAllowList": false,
                     "ciIgnoreFlagsEnabled": false
                   },
-                  "projectId": "${refs.iac-experiment.id}"
+                  "projectId": "${refs.iac-experiment.id}",
+                  "healthChecks": [
+                    {
+                      "type": "readinessProbe",
+                      "protocol": "HTTP",
+                      "path": "/health",
+                      "port": 3000,
+                      "initialDelaySeconds": 5,
+                      "periodSeconds": 60,
+                      "timeoutSeconds": 10,
+                      "failureThreshold": 3,
+                      "successThreshold": 1
+                    }
+                  ]
                 },
                 "ref": "apiservice"
               },
@@ -208,7 +273,20 @@
                     "pathIgnoreRules": [],
                     "isAllowList": false,
                     "ciIgnoreFlagsEnabled": false
-                  }
+                  },
+                  "healthChecks": [
+                    {
+                      "type": "readinessProbe",
+                      "protocol": "HTTP",
+                      "path": "/health",
+                      "port": 3001,
+                      "initialDelaySeconds": 5,
+                      "periodSeconds": 60,
+                      "timeoutSeconds": 10,
+                      "failureThreshold": 3,
+                      "successThreshold": 1
+                    }
+                  ]
                 },
                 "ref": "webservice"
               }
