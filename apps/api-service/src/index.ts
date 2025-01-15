@@ -51,13 +51,19 @@ const logger = winston.createLogger({
 });
 
 // Initialize database pool
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT || '5432')
-});
+const pool = new Pool(
+  process.env.DB_URI
+    ? {
+        connectionString: process.env.DB_URI,
+      }
+    : {
+        user: process.env.DB_USER,
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        password: process.env.DB_PASSWORD,
+        port: parseInt(process.env.DB_PORT || '5432'),
+      }
+);
 
 const app = express();
 
@@ -181,6 +187,7 @@ app.get(`${basePath}/health`, handleHealthCheck);
 logger.info('Starting API service with configuration', {
   basePath: process.env.BASE_PATH,
   port: process.env.PORT || 3000,
+  dbConnection: process.env.DB_URI ? 'uri' : 'parameters'
 });
 
 const port = process.env.PORT || 3000;
