@@ -8,15 +8,6 @@ const SSM = isLambda ? require('@aws-sdk/client-ssm').SSM : null
 const SecretsManager = isLambda ? require('@aws-sdk/client-secrets-manager').SecretsManager : null
 
 exports.migrate = async function() {
-  // Log all environment variables at the start
-  console.log('Environment variables:', {
-    DB_HOST: process.env.DB_HOST,
-    DB_NAME: process.env.DB_NAME,
-    DB_USER: process.env.DB_USER,
-    DB_PASSWORD_SECRET_ARN: process.env.DB_PASSWORD_SECRET_ARN,
-    ENVIRONMENT: process.env.ENVIRONMENT
-  })
-
   // Get DB password from Secrets Manager
   let dbPassword
   if (isLambda) {
@@ -35,14 +26,6 @@ exports.migrate = async function() {
   } else {
     dbPassword = process.env.DB_PASSWORD
   }
-
-  // Log connection details (without password)
-  console.log('Attempting to connect with:', {
-    host: process.env.DB_HOST.split(':')[0],
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'messages',
-    user: process.env.DB_USER || 'postgres',
-  })
 
   // Use the uri if it's set
   const uri = process.env.DB_URI
