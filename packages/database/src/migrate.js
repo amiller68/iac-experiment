@@ -41,16 +41,25 @@ exports.migrate = async function() {
     host: process.env.DB_HOST.split(':')[0],
     port: parseInt(process.env.DB_PORT || '5432'),
     database: process.env.DB_NAME || 'messages',
-    user: process.env.DB_USER || 'postgres'
+    user: process.env.DB_USER || 'postgres',
   })
 
-  const client = new Client({
-    host: process.env.DB_HOST.split(':')[0],
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'messages',
-    user: process.env.DB_USER || 'postgres',
-    password: dbPassword
-  })
+  // Use the uri if it's set
+  const uri = process.env.DB_URI
+  let client
+  if (uri) {
+    // TODO: remove this asap
+    console.log('Using DB_URI:', uri)
+    client = new Client({ uri })
+  } else {
+    client = new Client({
+      host: process.env.DB_HOST.split(':')[0],
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME || 'messages',
+      user: process.env.DB_USER || 'postgres',
+      password: dbPassword
+    })
+  }
 
   try {
     await client.connect()
