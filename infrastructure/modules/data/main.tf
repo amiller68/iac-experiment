@@ -146,7 +146,7 @@ resource "aws_lambda_function" "db_migrate" {
       DB_NAME               = "messages"
       DB_USER               = "postgres"
       ENVIRONMENT           = var.environment
-      MIGRATION_STATUS_PARAM = "/${var.environment}/migration-status"
+      MIGRATION_STATUS_PARAM = var.migration_status_param_name
     }
   }
 
@@ -160,28 +160,6 @@ resource "aws_lambda_function" "db_migrate" {
     aws_iam_role_policy_attachment.lambda_basic,
     null_resource.build_lambda
   ]
-}
-
-# CloudWatch Event to trigger migrations on deployment
-resource "aws_cloudwatch_event_rule" "migration_trigger" {
-  name                = "${var.environment}-db-migration-trigger"
-  description         = "Triggers database migrations when files change"
-  schedule_expression = "rate(1 day)"
-  state              = "ENABLED"
-}
-
-resource "aws_cloudwatch_event_target" "migration_lambda" {
-  rule      = aws_cloudwatch_event_rule.migration_trigger.name
-  target_id = "TriggerMigrationLambda"
-  arn       = aws_lambda_function.db_migrate.arn
-}
-
-resource "aws_lambda_permission" "allow_eventbridge" {
-  statement_id  = "AllowEventBridgeInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.db_migrate.function_name
-  principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.migration_trigger.arn
 }
 
 # Lambda Security Group

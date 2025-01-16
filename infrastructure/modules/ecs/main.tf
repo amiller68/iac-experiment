@@ -261,7 +261,7 @@ resource "aws_ecs_task_definition" "api_service" {
   container_definitions = jsonencode([
     {
       name  = "api-service"
-      image = "${aws_ecr_repository.api_service.repository_url}:latest"
+      image = "${aws_ecr_repository.api_service.repository_url}:${var.api_image_tag}"
       portMappings = [
         {
           containerPort = 3000
@@ -333,7 +333,7 @@ resource "aws_ecs_task_definition" "web_service" {
   container_definitions = jsonencode([
     {
       name  = "web-service"
-      image = "${aws_ecr_repository.web_service.repository_url}:latest"
+      image = "${aws_ecr_repository.web_service.repository_url}:${var.web_image_tag}"
       portMappings = [
         {
           containerPort = 3001
@@ -382,6 +382,7 @@ resource "aws_ecs_service" "api_service" {
   task_definition = aws_ecs_task_definition.api_service.arn
   desired_count   = var.api_service_count
   launch_type     = "FARGATE"
+  force_new_deployment = true
 
   network_configuration {
     subnets          = var.private_subnet_ids
@@ -415,6 +416,7 @@ resource "aws_ecs_service" "web_service" {
   task_definition = aws_ecs_task_definition.web_service.arn
   desired_count   = var.web_service_count
   launch_type     = "FARGATE"
+  force_new_deployment = true
 
   network_configuration {
     subnets          = var.private_subnet_ids
