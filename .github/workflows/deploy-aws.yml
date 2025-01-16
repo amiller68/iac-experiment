@@ -74,7 +74,7 @@ jobs:
           TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
 
   build-and-push:
-    needs: [check-changes, setup-ecr]
+    needs: [check-changes, ensure-ecr]
     runs-on: ubuntu-latest
     environment: production
     if: needs.check-changes.outputs.api_changed == 'true' || needs.check-changes.outputs.web_changed == 'true'
