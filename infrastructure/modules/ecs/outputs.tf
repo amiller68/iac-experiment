@@ -48,10 +48,6 @@ output "ecs_task_execution_role_arn" {
   value       = aws_iam_role.ecs_task_execution.arn
 }
 
-output "migration_status_param_name" {
-  value = aws_ssm_parameter.migration_status.name
-}
-
 output "alb_arn_suffix" {
   description = "ARN suffix of the ALB"
   value       = aws_lb.main.arn_suffix

@@ -68,14 +68,3 @@ variable "db_password_secret_arn" {
   description = "ARN of the secret containing the database password"
   type        = string
 }
-
-variable "migration_status_param_name" {
-  description = "Name of the migration status SSM parameter"
-  type        = string
-}
-
-variable "enforce_migration_check" {
-  description = "Whether to enforce the migration check before starting services"
-  type        = bool
-  default     = true
-} 

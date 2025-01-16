@@ -114,7 +114,7 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
-# Add RDS VPC Endpoint
+# RDS VPC Endpoint
 resource "aws_vpc_endpoint" "rds" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.rds"
@@ -129,37 +129,7 @@ resource "aws_vpc_endpoint" "rds" {
   }
 }
 
-# Add SNS VPC Endpoint
-resource "aws_vpc_endpoint" "sns" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.aws_region}.sns"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name        = "${var.environment}-sns-endpoint"
-    Environment = var.environment
-  }
-}
-
-# Add SSM VPC Endpoint
-resource "aws_vpc_endpoint" "ssm" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = "com.amazonaws.${var.aws_region}.ssm"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = aws_subnet.private[*].id
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name        = "${var.environment}-ssm-endpoint"
-    Environment = var.environment
-  }
-}
-
-# Add Secrets Manager VPC Endpoint
+# Secrets Manager VPC Endpoint
 resource "aws_vpc_endpoint" "secretsmanager" {
   vpc_id              = aws_vpc.main.id
   service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"

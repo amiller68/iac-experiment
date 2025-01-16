@@ -146,7 +146,6 @@ resource "aws_lambda_function" "db_migrate" {
       DB_NAME               = "messages"
       DB_USER               = "postgres"
       ENVIRONMENT           = var.environment
-      MIGRATION_STATUS_PARAM = var.migration_status_param_name
     }
   }
 
@@ -210,7 +209,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Allow Lambda to access Secrets Manager and SSM
+# Allow Lambda to access Secrets Manager
 resource "aws_iam_role_policy" "lambda_secrets" {
   name = "${var.environment}-lambda-secrets"
   role = aws_iam_role.lambda_role.id
@@ -221,13 +220,10 @@ resource "aws_iam_role_policy" "lambda_secrets" {
       {
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue",
-          "ssm:PutParameter",
-          "ssm:GetParameter"
+          "secretsmanager:GetSecretValue"
         ]
         Resource = [
-          var.db_password_secret_arn,
-          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.environment}/migration-status"
+          var.db_password_secret_arn
         ]
       }
     ]

@@ -364,17 +364,6 @@ resource "aws_ecs_task_definition" "web_service" {
   }
 }
 
-# Create or read SSM parameter for migration status
-resource "aws_ssm_parameter" "migration_status" {
-  name  = var.migration_status_param_name
-  type  = "String"
-  value = "pending"  # Default value
-
-  lifecycle {
-    ignore_changes = [value]  # Ignore changes since Lambda will update it
-  }
-}
-
 # ECS Services
 resource "aws_ecs_service" "api_service" {
   name            = "api-service"
@@ -398,15 +387,6 @@ resource "aws_ecs_service" "api_service" {
 
   tags = {
     Environment = var.environment
-  }
-
-  depends_on = [aws_ssm_parameter.migration_status]
-
-  lifecycle {
-    precondition {
-      condition     = !var.enforce_migration_check || aws_ssm_parameter.migration_status.value == "complete"
-      error_message = "Database migrations must complete before services can start"
-    }
   }
 }
 
@@ -433,15 +413,6 @@ resource "aws_ecs_service" "web_service" {
   tags = {
     Environment = var.environment
   }
-
-  depends_on = [aws_ssm_parameter.migration_status]
-
-  lifecycle {
-    precondition {
-      condition     = !var.enforce_migration_check || aws_ssm_parameter.migration_status.value == "complete"
-      error_message = "Database migrations must complete before services can start"
-    }
-  }
 }
 
 # Add permissions to ECS task execution role
@@ -464,28 +435,4 @@ resource "aws_iam_policy" "secrets_access" {
       }
     ]
   })
-}
-
-# Add auto-scaling configuration
-resource "aws_appautoscaling_target" "api_service" {
-  max_capacity       = 4
-  min_capacity       = 1
-  resource_id        = "service/${aws_ecs_cluster.main.name}/${aws_ecs_service.api_service.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
-
-resource "aws_appautoscaling_policy" "api_service_cpu" {
-  name               = "${var.environment}-api-service-cpu"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.api_service.resource_id
-  scalable_dimension = aws_appautoscaling_target.api_service.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.api_service.service_namespace
-
-  target_tracking_scaling_policy_configuration {
-    target_value = 75.0
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-  }
 } 

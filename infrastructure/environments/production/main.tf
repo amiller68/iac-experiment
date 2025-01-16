@@ -16,8 +16,6 @@ module "infrastructure" {
   vpc_cidr    = "10.0.0.0/16"
   availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
 
-  database_password       = var.database_password
-  grafana_admin_password = var.grafana_admin_password
   alert_email           = var.alert_email
 
   api_service_cpu     = 1024

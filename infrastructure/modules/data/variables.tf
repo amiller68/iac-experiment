@@ -38,8 +38,3 @@ variable "db_instance_class" {
   type        = string
   default     = "db.t3.micro"
 }
-
-variable "migration_status_param_name" {
-  description = "Name of the SSM parameter for tracking migration status"
-  type        = string
-} 

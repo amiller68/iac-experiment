@@ -15,10 +15,10 @@ output "rds_endpoint" {
   sensitive = true
 }
 
-output "grafana_security_group_id" {
-  value = module.monitoring.grafana_security_group_id
-}
+# output "grafana_security_group_id" {
+#   value = module.monitoring.grafana_security_group_id
+# }
 
-output "prometheus_security_group_id" {
-  value = module.monitoring.prometheus_security_group_id
-} 
+# output "prometheus_security_group_id" {
+#   value = module.monitoring.prometheus_security_group_id
+# } 

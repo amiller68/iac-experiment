@@ -4,13 +4,11 @@ const path = require('path')
 
 // Only require AWS SDK when running in Lambda
 const isLambda = !!process.env.AWS_LAMBDA_FUNCTION_NAME
-const SSM = isLambda ? require('@aws-sdk/client-ssm').SSM : null
 const SecretsManager = isLambda ? require('@aws-sdk/client-secrets-manager').SecretsManager : null
 
 exports.migrate = async function() {
   // Get DB password from Secrets Manager
   let dbPassword
-  // NOTE: small change to force re-deploy of services
   if (isLambda) {
     console.log('Running in Lambda, retrieving secret from:', process.env.DB_PASSWORD_SECRET_ARN)
     const secretsManager = new SecretsManager({})
@@ -62,20 +60,6 @@ exports.migrate = async function() {
       console.log('Migration SQL:', sql.substring(0, 100) + '...')
       await client.query(sql)
       console.log(`Completed migration: ${migration}`)
-    }
-
-    if (isLambda) {
-      console.log('Updating SSM parameter...')
-      const ssm = new SSM({})
-      const paramName = `/${process.env.ENVIRONMENT}/migration-status`
-      
-      await ssm.putParameter({
-        Name: paramName,
-        Value: 'complete',
-        Type: 'String',
-        Overwrite: true
-      })
-      console.log('SSM parameter updated successfully')
     }
 
     console.log('Migration completed successfully')

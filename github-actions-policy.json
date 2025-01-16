@@ -39,17 +39,6 @@
         {
             "Effect": "Allow",
             "Action": [
-                "ssm:PutParameter",
-                "ssm:GetParameter",
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:ListTagsForResource"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
                 "ecs:DescribeServices",
                 "ecs:UpdateService",
                 "ecs:DescribeTaskDefinition",
@@ -124,6 +113,7 @@
                 "secretsmanager:PutSecretValue",
                 "secretsmanager:DescribeSecret",
                 "secretsmanager:ListSecrets",
+                "secretsmanager:ListSecretVersionIds",
                 "secretsmanager:GetResourcePolicy"
             ],
             "Resource": "arn:aws:secretsmanager:*:*:secret:*"
