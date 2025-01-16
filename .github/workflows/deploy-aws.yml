@@ -177,11 +177,12 @@ jobs:
               --force-new-deployment
           fi
 
-      - name: Wait for Services to Stabilize
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ vars.STAGE_NAME }}-cluster \
-            --services api-service web-service
+      # TODO: this really should wait for services to stabilize
+      # - name: Wait for Services to Stabilize
+      #   run: |
+      #     aws ecs wait services-stable \
+      #       --cluster ${{ vars.STAGE_NAME }}-cluster \
+      #       --services api-service web-service
 
       # TODO: this really should be a step since we don't want to run it on every deploy
       #  but for now this is a quick fix

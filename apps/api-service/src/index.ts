@@ -193,6 +193,57 @@ app.delete(`${basePath}/messages/:id`, async (req, res) => {
   }
 });
 
+// Add this new endpoint after the existing message endpoints
+app.put(`${basePath}/messages/:id`, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message content is required' });
+    }
+
+    const result = await pool.query(
+      `UPDATE messages 
+       SET content = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 AND deleted_at IS NULL 
+       RETURNING *`,
+      [message, id]
+    );
+    
+    if (result.rows.length === 0) {
+      logger.warn('Message not found or already deleted', {
+        correlationId: req.correlationId,
+        messageId: id
+      });
+      metrics.requestCount.inc({ method: 'PUT', route: `/messages/:id`, status_code: 404 });
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    logger.info('Message updated', {
+      correlationId: req.correlationId,
+      messageId: id
+    });
+
+    metrics.requestCount.inc({ method: 'PUT', route: `/messages/:id`, status_code: 200 });
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error updating message', {
+      correlationId: req.correlationId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
+    metrics.errorCount.inc({ method: 'PUT', route: `/messages/:id` });
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    metrics.requestDuration.observe(
+      { method: 'PUT', route: `/messages/:id`, status_code: res.statusCode },
+      (Date.now() - startTime) / 1000
+    );
+  }
+});
+
 // Add this function before the route definitions
 async function handleHealthCheck(req: express.Request, res: express.Response) {
   try {

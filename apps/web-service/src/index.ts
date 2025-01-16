@@ -75,8 +75,14 @@ app.get('/', (req, res) => {
             .message-form { margin-bottom: 20px; }
             .messages { border: 1px solid #ccc; padding: 10px; }
             .message { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+            .message-content { flex-grow: 1; margin-right: 10px; }
+            .message-actions { display: flex; gap: 5px; }
+            .edit-btn { background: #4444ff; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+            .edit-btn:hover { background: #0000cc; }
             .delete-btn { background: #ff4444; color: white; border: none; padding: 5px 10px; cursor: pointer; }
             .delete-btn:hover { background: #cc0000; }
+            .editing { background: #f0f0f0; padding: 5px; }
+            .editing input { margin-right: 5px; }
         </style>
     </head>
     <body>
@@ -93,6 +99,42 @@ app.get('/', (req, res) => {
         <script>
             const API_URL = '${process.env.API_URL || 'http://localhost:3000'}';
             
+            async function updateMessage(id, element) {
+                const messageDiv = element.closest('.message');
+                const input = messageDiv.querySelector('.edit-input');
+                const message = input.value;
+                
+                if (!message.trim()) return;
+                
+                try {
+                    const response = await fetch(\`\${API_URL}/messages/\${id}\`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
+                    });
+                    
+                    if (response.ok) {
+                        loadMessages();
+                    } else {
+                        console.error('Error updating message:', await response.text());
+                    }
+                } catch (error) {
+                    console.error('Error updating message:', error);
+                }
+            }
+
+            function startEdit(id, content) {
+                const messageDiv = document.querySelector(\`.message[data-id="\${id}"]\`);
+                const contentDiv = messageDiv.querySelector('.message-content');
+                contentDiv.innerHTML = \`
+                    <div class="editing">
+                        <input type="text" class="edit-input" value="\${content.replace(/"/g, '&quot;')}">
+                        <button onclick="updateMessage(\${id}, this)">Save</button>
+                        <button onclick="loadMessages()">Cancel</button>
+                    </div>
+                \`;
+            }
+
             async function deleteMessage(id) {
                 try {
                     const response = await fetch(\`\${API_URL}/messages/\${id}\`, {
@@ -135,9 +177,12 @@ app.get('/', (req, res) => {
                     const messageList = document.getElementById('messageList');
                     messageList.innerHTML = messages
                         .map(msg => \`
-                            <div class="message">
-                                <div>\${msg.content}</div>
-                                <button class="delete-btn" onclick="deleteMessage(\${msg.id})">Delete</button>
+                            <div class="message" data-id="\${msg.id}">
+                                <div class="message-content">\${msg.content}</div>
+                                <div class="message-actions">
+                                    <button class="edit-btn" onclick="startEdit(\${msg.id}, '\${msg.content.replace(/'/g, "\\'")}')">Edit</button>
+                                    <button class="delete-btn" onclick="deleteMessage(\${msg.id})">Delete</button>
+                                </div>
                             </div>
                         \`)
                         .join('');
