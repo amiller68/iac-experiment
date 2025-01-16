@@ -36,7 +36,7 @@ jobs:
             infrastructure:
               - 'infrastructure/**'
 
-  setup-ecr:
+  ensure-ecr:
     needs: check-changes
     runs-on: ubuntu-latest
     environment: production

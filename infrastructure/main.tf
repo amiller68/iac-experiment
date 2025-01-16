@@ -55,8 +55,8 @@ module "data" {
   api_service_security_group_id = module.ecs.api_service_security_group_id
   web_service_security_group_id = module.ecs.web_service_security_group_id
   kms_key_id                   = module.secrets.kms_key_id
-  migration_status_param_name  = "/${var.environment}/migration-status"
   db_password_secret_arn       = module.secrets.db_password_secret_arn
+  migration_status_param_name   = "/${var.environment}/migration-status"
 }
 
 # ECS
