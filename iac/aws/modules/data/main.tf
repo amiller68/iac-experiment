@@ -97,11 +97,11 @@ resource "aws_db_parameter_group" "main" {
 # Install dependencies for Lambda
 resource "null_resource" "build_lambda" {
   triggers = {
-    package_json = filemd5("${path.module}/../../../packages/database/package.json")
-    migrate_js = filemd5("${path.module}/../../../packages/database/src/migrate.js")
+    package_json = filemd5("${path.module}/../../../src/packages/database/package.json")
+    migrate_js = filemd5("${path.module}/../../../src/packages/database/src/migrate.js")
     migrations = sha256(join("", [
-      for f in fileset("${path.module}/../../../packages/database/migrations", "*.sql") :
-      filemd5("${path.module}/../../../packages/database/migrations/${f}")
+      for f in fileset("${path.module}/../../../src/packages/database/migrations", "*.sql") :
+      filemd5("${path.module}/../../../src/packages/database/migrations/${f}")
     ]))
   }
 
@@ -109,7 +109,7 @@ resource "null_resource" "build_lambda" {
     command = <<-EOT
       mkdir -p ${path.module}/lambda
       rm -rf ${path.module}/lambda/*
-      cp -r ${path.module}/../../../packages/database/* ${path.module}/lambda/
+      cp -r ${path.module}/../../../src/packages/database/* ${path.module}/lambda/
       cd ${path.module}/lambda && npm install --production && zip -r function.zip .
     EOT
   }

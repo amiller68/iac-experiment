@@ -27,11 +27,6 @@ jobs:
             web:
               - 'apps/web-service/src/**'
               - 'package-lock.json'
-            database:
-              - 'packages/database/migrations/**'
-              - 'packages/database/src/**'
-            infrastructure:
-              - 'infrastructure/**'
 
   ensure-ecr:
     needs: check-changes
@@ -55,11 +50,11 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
-        working-directory: infrastructure/environments/production
+        working-directory: iac/environments/production
         run: terraform init
 
       - name: Setup ECR Repositories
-        working-directory: infrastructure/environments/production
+        working-directory: iac/environments/production
         run: |
           terraform apply -auto-approve \
             -target=module.ecs.aws_ecr_repository.api_service \
@@ -98,7 +93,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{ vars.STAGE_NAME }}-api-service:$IMAGE_TAG ./apps/api-service
+          docker build -t $ECR_REGISTRY/${{ vars.STAGE_NAME }}-api-service:$IMAGE_TAG ./src/services/api-service
           docker push $ECR_REGISTRY/${{ vars.STAGE_NAME }}-api-service:$IMAGE_TAG
           docker tag $ECR_REGISTRY/${{ vars.STAGE_NAME }}-api-service:$IMAGE_TAG $ECR_REGISTRY/${{ vars.STAGE_NAME }}-api-service:latest
           docker push $ECR_REGISTRY/${{ vars.STAGE_NAME }}-api-service:latest
@@ -109,7 +104,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/${{ vars.STAGE_NAME }}-web-service:$IMAGE_TAG ./apps/web-service
+          docker build -t $ECR_REGISTRY/${{ vars.STAGE_NAME }}-web-service:$IMAGE_TAG ./src/services/web-service
           docker push $ECR_REGISTRY/${{ vars.STAGE_NAME }}-web-service:$IMAGE_TAG
           docker tag $ECR_REGISTRY/${{ vars.STAGE_NAME }}-web-service:$IMAGE_TAG $ECR_REGISTRY/${{ vars.STAGE_NAME }}-web-service:latest
           docker push $ECR_REGISTRY/${{ vars.STAGE_NAME }}-web-service:latest

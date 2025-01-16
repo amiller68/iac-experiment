@@ -2,8 +2,8 @@
   "name": "infrastructure-project",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "src/services/*",
+    "src/packages/*"
   ],
   "scripts": {
     "build": "turbo run build",

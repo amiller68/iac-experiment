@@ -14,7 +14,7 @@ services:
 
   api-service:
     build: 
-      context: ./apps/api-service
+      context: ./src/services/api-service
     environment:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
@@ -29,7 +29,7 @@ services:
 
   web-service:
     build:
-      context: ./apps/web-service
+      context: ./src/services/web-service
     environment:
       API_URL: http://localhost:3000
       PORT: 3001
@@ -67,7 +67,7 @@ services:
 
   database-migrate:
     build: 
-      context: ./packages/database
+      context: ./src/packages/database
     environment:
       DB_HOST: postgres
       DB_PORT: 5432

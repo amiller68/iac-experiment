@@ -7,7 +7,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
-infrastructure/modules/data/lambda
+iac/aws/modules/data/lambda
 
 # Environment variables
 .env
@@ -54,13 +54,6 @@ coverage/
 *.tmp
 *.temp
 .cache/
-
-# Grafana & Prometheus data
-grafana/data/
-prometheus/data/
-
-# EFS mounts
-efs/
 
 # Misc
 *.pem

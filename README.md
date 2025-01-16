@@ -261,7 +261,7 @@ In terms of maintainability, let's look at the following:
     - should still include oversight and review for complex changes.
 - what exactly do we need to keep maintaining in the long run?
   - as awlays, you'll need to do regualr security audits of your dependencies and builds (this is just part of being a software developer)
-  - NOTE: you'd also need to make sure you're github action policy is up to date with the latest permissions you need to deploy your infrastructure. You can either update this manually OR if you have an admin account configred on your local machine, you can run `./update-github-action-policy.sh` to update it.
+  - NOTE: you'd also need to make sure you're github action policy is up to date with the latest permissions you need to deploy your infrastructure. You can either update this manually OR if you have an admin account configred on your local machine, you can run `./bin/update-github-action-policy.sh` to update it.
   - Notably with the example implemented here, we don't need to manage anything like k8s ourselves, rolling out kernel patches, etc.
   - we do need to reason about the security of our infrastructure and how to keep it secure:
     - making sure database is secure and running a secure version of postgres
