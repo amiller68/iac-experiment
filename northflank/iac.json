@@ -62,6 +62,44 @@
                         "disabledCI": false
                       },
                       "ref": "iac-experiment-api-service-builder"
+                    },
+                    {
+                      "kind": "BuildService",
+                      "spec": {
+                        "buildArguments": {},
+                        "buildFiles": {},
+                        "billing": {
+                          "buildPlan": "nf-compute-400-16"
+                        },
+                        "name": "iac-experiment-web-service-builder",
+                        "vcsData": {
+                          "projectType": "github",
+                          "accountLogin": "amiller68",
+                          "projectUrl": "https://github.com/amiller68/iac-experiment"
+                        },
+                        "buildConfiguration": {
+                          "prRestrictions": [
+                            "feat/*"
+                          ],
+                          "branchRestrictions": [
+                            "main"
+                          ]
+                        },
+                        "buildSettings": {
+                          "dockerfile": {
+                            "buildEngine": "kaniko",
+                            "useCache": false,
+                            "dockerWorkDir": "/apps/web-service",
+                            "dockerFilePath": "/apps/web-service/Dockerfile",
+                            "buildkit": {
+                              "useInternalCache": false,
+                              "internalCacheStorage": 16384
+                            }
+                          }
+                        },
+                        "disabledCI": false
+                      },
+                      "ref": "iac-experiment-web-service-builder"
                     }
                   ],
                   "context": {
@@ -177,131 +215,104 @@
                 "ref": "db-migrate"
               },
               {
-                "kind": "DeploymentService",
+                "kind": "Workflow",
                 "spec": {
-                  "deployment": {
-                    "instances": 1,
-                    "storage": {
-                      "ephemeralStorage": {
-                        "storageSize": 1024
-                      },
-                      "shmSize": 64
-                    },
-                    "docker": {
-                      "configType": "default"
-                    },
-                    "internal": {
-                      "id": "${refs.iac-experiment-api-service-builder.id}",
-                      "branch": "main",
-                      "buildSHA": "latest"
-                    }
-                  },
-                  "runtimeEnvironment": {},
-                  "runtimeFiles": {},
-                  "billing": {
-                    "deploymentPlan": "nf-compute-10"
-                  },
-                  "name": "iac-experiment-api-service-deploy",
-                  "ports": [
+                  "type": "parallel",
+                  "steps": [
                     {
-                      "internalPort": 3000,
-                      "public": true,
-                      "protocol": "HTTP",
-                      "name": "p01",
-                      "domains": [],
-                      "security": {
-                        "sso": {},
-                        "policies": [],
-                        "credentials": [],
-                        "verificationMode": "or"
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "storage": {
+                            "ephemeralStorage": {
+                              "storageSize": 1024
+                            },
+                            "shmSize": 64
+                          },
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "internal": {
+                            "id": "${refs.iac-experiment-api-service-builder.id}",
+                            "branch": "main",
+                            "buildSHA": "latest"
+                          }
+                        },
+                        "runtimeEnvironment": {},
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-10"
+                        },
+                        "name": "iac-experiment-api-service-deploy",
+                        "ports": [
+                          {
+                            "internalPort": 3000,
+                            "public": true,
+                            "protocol": "HTTP",
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "sso": {},
+                              "policies": [],
+                              "credentials": [],
+                              "verificationMode": "or"
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
                       },
-                      "disableNfDomain": false
+                      "ref": "iac-experiment-api-service-deploy"
+                    },
+                    {
+                      "kind": "DeploymentService",
+                      "spec": {
+                        "deployment": {
+                          "instances": 1,
+                          "storage": {
+                            "ephemeralStorage": {
+                              "storageSize": 1024
+                            },
+                            "shmSize": 64
+                          },
+                          "docker": {
+                            "configType": "default"
+                          },
+                          "internal": {
+                            "id": "${refs.iac-experiment-web-service-builder.id}",
+                            "branch": "main",
+                            "buildSHA": "latest"
+                          }
+                        },
+                        "runtimeEnvironment": {
+                          "API_URL": "${refs.iac-experiment-api-service-builder.ports.0.dns}"
+                        },
+                        "runtimeFiles": {},
+                        "billing": {
+                          "deploymentPlan": "nf-compute-10"
+                        },
+                        "name": "iac-experiment-web-service-deploy",
+                        "ports": [
+                          {
+                            "internalPort": 3001,
+                            "public": true,
+                            "protocol": "HTTP",
+                            "name": "p01",
+                            "domains": [],
+                            "security": {
+                              "sso": {},
+                              "policies": [],
+                              "credentials": [],
+                              "verificationMode": "or"
+                            },
+                            "disableNfDomain": false
+                          }
+                        ]
+                      },
+                      "ref": "iac-experiment-web-service-deploy"
                     }
                   ]
-                },
-                "ref": "iac-experiment-api-service-deploy"
-              },
-              {
-                "kind": "CombinedService",
-                "spec": {
-                  "deployment": {
-                    "instances": 1,
-                    "storage": {
-                      "ephemeralStorage": {
-                        "storageSize": 1024
-                      },
-                      "shmSize": 64
-                    },
-                    "docker": {
-                      "configType": "default"
-                    }
-                  },
-                  "runtimeEnvironment": {
-                    "API_URL": "https://${refs.iac-experiment-api-service-deploy.ports.0.dns}"
-                  },
-                  "runtimeFiles": {},
-                  "buildArguments": {},
-                  "buildFiles": {},
-                  "billing": {
-                    "deploymentPlan": "nf-compute-10",
-                    "buildPlan": "nf-compute-400-16"
-                  },
-                  "name": "WebService",
-                  "vcsData": {
-                    "projectType": "github",
-                    "accountLogin": "amiller68",
-                    "projectUrl": "https://github.com/amiller68/iac-experiment",
-                    "projectBranch": "main"
-                  },
-                  "ports": [
-                    {
-                      "internalPort": 3001,
-                      "public": true,
-                      "protocol": "HTTP",
-                      "name": "p01",
-                      "domains": [],
-                      "security": {
-                        "sso": {},
-                        "policies": [],
-                        "credentials": [],
-                        "verificationMode": "or"
-                      },
-                      "disableNfDomain": false
-                    }
-                  ],
-                  "buildSettings": {
-                    "dockerfile": {
-                      "buildEngine": "kaniko",
-                      "useCache": false,
-                      "dockerWorkDir": "/apps/web-service",
-                      "dockerFilePath": "/apps/web-service/Dockerfile",
-                      "buildkit": {
-                        "useInternalCache": false,
-                        "internalCacheStorage": 16384
-                      }
-                    }
-                  },
-                  "disabledCI": false,
-                  "buildConfiguration": {
-                    "pathIgnoreRules": [],
-                    "isAllowList": false,
-                    "ciIgnoreFlagsEnabled": false
-                  },
-                  "healthChecks": [
-                    {
-                      "type": "readinessProbe",
-                      "protocol": "HTTP",
-                      "path": "/health",
-                      "port": 3001,
-                      "initialDelaySeconds": 5,
-                      "periodSeconds": 60,
-                      "timeoutSeconds": 10,
-                      "failureThreshold": 3,
-                      "successThreshold": 1
-                    }
-                  ]
-                },
-                "ref": "webservice"
+                }
               }
             ],
             "context": {
