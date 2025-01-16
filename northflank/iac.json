@@ -285,7 +285,7 @@
                           }
                         },
                         "runtimeEnvironment": {
-                          "API_URL": "${refs.iac-experiment-api-service-builder.ports.0.dns}"
+                          "API_URL": "${refs.iac-experiment-api-service-deploy.ports.0.dns}"
                         },
                         "runtimeFiles": {},
                         "billing": {
