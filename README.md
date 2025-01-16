@@ -1,21 +1,24 @@
 # IAC Experiment
 
 I'm trying to figure out the trade offs between strategies for developing and deploying
- containerized services using fully bespoke IaC targeting AWS vs. a PaaS like Northflank.
+containerized services using fully bespoke IaC targeting AWS vs. a PaaS like Northflank.
 
 This project is an exercise on deploying a simple suite of containerized services and infrastructure following both strategies. We'll end up with the following components:
+
 - a web service
 - an api service
 - a postgres database
 - a lambda function that can run migrations
 
 Check out the live versions of the services here:
-- aws: http://production-alb-2085663325.us-east-1.elb.amazonaws.com/
-- northflank: http://p01--iac-experiment-web-service--7l4b6srpwt2d.code.run
+
+- [aws](http://production-alb-2085663325.us-east-1.elb.amazonaws.com/)
+- [northflank](https://p01--webservice--hzgwn22qv6ml.code.run/)
 
 ## what are we testing?
 
 The goal is to arrive at a more rigourous understanding of what exactly you gain from using a PaaS like Northflank vs. a fully bespoke IaC strategy. We know the latter is going to be more work / more complex more time to a PoC, but if we go with a PaaS, I wonder if we're gonna miss having more control / flexibility / auditability / etc. Therefore, we're gonna define a shared set of requirements that should map on pretty well to either strategy, and evaluate:
+
 - how well each strategy meets the requirements
 - how much work / time / complexity each strategy requires
 - how much control / flexibility / auditability each strategy provides
@@ -24,13 +27,14 @@ The goal is to arrive at a more rigourous understanding of what exactly you gain
 - etc.
 
 With that in mind, here are the requirements. Our solution should:
+
 - expose a web service and api service behind a shared domain name via a load balancer
   - web should be served at /
   - api should be served at /api
   - caveat: it's ok if we have different domain names during local development with docker compose
 - utilize some managed abstraction on container orchestration
   - note: northflank fully manages k8s for you, we're not going to attempt to do that
-  on AWS, and just opt for ECS Fargate
+    on AWS, and just opt for ECS Fargate
 - host a postgres database
   - this should only be accessible from within the VPC by the
     - api service
@@ -43,6 +47,7 @@ With that in mind, here are the requirements. Our solution should:
   - deployments should be entirely handled by ci/cd
 
 Explicit non-requirements:
+
 - TLS termination
 - any kind of authentication
 
@@ -64,7 +69,7 @@ the project structure is a turbo monorepo structured as follows:
 ## a quick note on local development
 
 I implemented a docker composition as a quick sanity check to make sure we can get the services running locally.
- You can get that up and running right now with:
+You can get that up and running right now with:
 
 ```bash
 # Start all services
@@ -89,3 +94,4 @@ note: ignore the prometheus and grafana services for now, they ended up not bein
 ### Setup
 
 TODO: the rest of this
+
