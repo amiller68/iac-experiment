@@ -10,11 +10,9 @@ jobs:
   check-changes:
     runs-on: ubuntu-latest
     outputs:
-      # for now, all true
-      api_changed: true
-      web_changed: true
-      database_changed: true
-      infrastructure_changed: true
+      api_changed: ${{ steps.filter.outputs.api }}
+      web_changed: ${{ steps.filter.outputs.web }}
+      database_changed: ${{ steps.filter.outputs.database }}
     
     steps:
       - uses: actions/checkout@v3
@@ -40,7 +38,6 @@ jobs:
     needs: check-changes
     runs-on: ubuntu-latest
     environment: production
-    if: needs.check-changes.outputs.api_changed == 'true' || needs.check-changes.outputs.web_changed == 'true'
     
     permissions:
       id-token: write
@@ -126,7 +123,7 @@ jobs:
 
   deploy-infrastructure:
     needs: [check-changes, build-and-push]
-    if: always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped' || needs.check-changes.outputs.infrastructure_changed == 'true')
+    if: always() && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped')
     runs-on: ubuntu-latest
     environment: production
     
@@ -164,6 +161,23 @@ jobs:
           TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
           TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
 
+      - name: Force Redeploy Services if Changed
+        if: needs.check-changes.outputs.api_changed == 'true' || needs.check-changes.outputs.web_changed == 'true'
+        run: |
+          if [[ "${{ needs.check-changes.outputs.api_changed }}" == "true" ]]; then
+            aws ecs update-service \
+              --cluster ${{ vars.STAGE_NAME }}-cluster \
+              --service api-service \
+              --force-new-deployment
+          fi
+          
+          if [[ "${{ needs.check-changes.outputs.web_changed }}" == "true" ]]; then
+            aws ecs update-service \
+              --cluster ${{ vars.STAGE_NAME }}-cluster \
+              --service web-service \
+              --force-new-deployment
+          fi
+
       - name: Wait for Services to Stabilize
         run: |
           aws ecs wait services-stable \
@@ -174,7 +188,7 @@ jobs:
     needs: [deploy-infrastructure, check-changes]
     runs-on: ubuntu-latest
     environment: production
-    if: needs.check-changes.outputs.database_changed == 'true' || needs.check-changes.outputs.infrastructure_changed == 'true'
+    if: needs.check-changes.outputs.database_changed == 'true'
     
     permissions:
       id-token: write
@@ -213,77 +227,3 @@ jobs:
           else
             echo "Migration completed successfully"
           fi 
-
-  deploy-services:
-    needs: [run-migrations, check-changes]
-    runs-on: ubuntu-latest
-    environment: production
-    if: needs.check-changes.outputs.api_changed == 'true' || needs.check-changes.outputs.web_changed == 'true' || needs.check-changes.outputs.infrastructure_changed == 'true'
-
-    permissions:
-      id-token: write
-      contents: read
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-
-      - name: Terraform Init
-        working-directory: infrastructure/environments/production
-        run: terraform init
-
-      - name: Deploy API Service
-        working-directory: infrastructure/environments/production
-        run: |
-          terraform apply -auto-approve \
-            -target=module.ecs.aws_ecs_service.api_service
-        env:
-          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
-          TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
-          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
-
-      - name: Force Redeploy API Service
-        if: needs.check-changes.outputs.api_changed == 'true'
-        run: |
-          aws ecs update-service \
-            --cluster ${{ vars.STAGE_NAME }}-cluster \
-            --service api-service \
-            --force-new-deployment
-
-      - name: Wait for API Service to Stabilize
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ vars.STAGE_NAME }}-cluster \
-            --services api-service
-
-      - name: Deploy Web Service
-        working-directory: infrastructure/environments/production
-        run: |
-          terraform apply -auto-approve \
-            -target=module.ecs.aws_ecs_service.web_service
-        env:
-          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
-          TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
-          TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
-
-      - name: Force Redeploy Web Service
-        if: needs.check-changes.outputs.web_changed == 'true'
-        run: |
-          aws ecs update-service \
-            --cluster ${{ vars.STAGE_NAME }}-cluster \
-            --service web-service \
-            --force-new-deployment
-
-      - name: Wait for Web Service to Stabilize
-        run: |
-          aws ecs wait services-stable \
-            --cluster ${{ vars.STAGE_NAME }}-cluster \
-            --services web-service 

@@ -10,6 +10,7 @@ const SecretsManager = isLambda ? require('@aws-sdk/client-secrets-manager').Sec
 exports.migrate = async function() {
   // Get DB password from Secrets Manager
   let dbPassword
+  // NOTE: small change to force re-deploy of services
   if (isLambda) {
     console.log('Running in Lambda, retrieving secret from:', process.env.DB_PASSWORD_SECRET_ARN)
     const secretsManager = new SecretsManager({})
