@@ -22,10 +22,10 @@ jobs:
           base: ${{ github.ref }}
           filters: |
             api:
-              - 'apps/api-service/src/**'
+              - '/src/services/api-service/**'
               - 'package-lock.json'
             web:
-              - 'apps/web-service/src/**'
+              - '/src/services/web-service/**'
               - 'package-lock.json'
 
   ensure-ecr:
