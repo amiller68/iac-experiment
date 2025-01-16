@@ -261,7 +261,7 @@ resource "aws_ecs_task_definition" "api_service" {
   container_definitions = jsonencode([
     {
       name  = "api-service"
-      image = "${aws_ecr_repository.api_service.repository_url}:${var.api_image_tag}"
+      image = "${aws_ecr_repository.api_service.repository_url}:latest"
       portMappings = [
         {
           containerPort = 3000
@@ -333,7 +333,7 @@ resource "aws_ecs_task_definition" "web_service" {
   container_definitions = jsonencode([
     {
       name  = "web-service"
-      image = "${aws_ecr_repository.web_service.repository_url}:${var.web_image_tag}"
+      image = "${aws_ecr_repository.web_service.repository_url}:latest"
       portMappings = [
         {
           containerPort = 3001
