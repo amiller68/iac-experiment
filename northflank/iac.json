@@ -222,7 +222,7 @@
                     }
                   },
                   "runtimeEnvironment": {
-                    "API_URL": "https://${refs.apiservice.ports.0.dns}"
+                    "API_URL": "https://${refs.iac-experiment-api-service-deploy.ports.0.dns}"
                   },
                   "runtimeFiles": {},
                   "buildArguments": {},
