@@ -100,6 +100,44 @@
                         "disabledCI": false
                       },
                       "ref": "iac-experiment-web-service-builder"
+                    },
+                    {
+                      "kind": "BuildService",
+                      "spec": {
+                        "buildArguments": {},
+                        "buildFiles": {},
+                        "billing": {
+                          "buildPlan": "nf-compute-400-16"
+                        },
+                        "name": "iac-experiment-db-migrate-builder",
+                        "vcsData": {
+                          "projectType": "github",
+                          "accountLogin": "amiller68",
+                          "projectUrl": "https://github.com/amiller68/iac-experiment"
+                        },
+                        "buildConfiguration": {
+                          "prRestrictions": [
+                            "feat/*"
+                          ],
+                          "branchRestrictions": [
+                            "main"
+                          ]
+                        },
+                        "buildSettings": {
+                          "dockerfile": {
+                            "buildEngine": "kaniko",
+                            "useCache": false,
+                            "dockerWorkDir": "/packages/database",
+                            "dockerFilePath": "/packages/database/Dockerfile",
+                            "buildkit": {
+                              "useInternalCache": false,
+                              "internalCacheStorage": 16384
+                            }
+                          }
+                        },
+                        "disabledCI": false
+                      },
+                      "ref": "iac-experiment-db-migrate-builder"
                     }
                   ],
                   "context": {
@@ -178,11 +216,10 @@
                     "docker": {
                       "configType": "default"
                     },
-                    "vcs": {
-                      "projectType": "github",
-                      "accountLogin": "amiller68",
-                      "projectUrl": "https://github.com/amiller68/iac-experiment",
-                      "projectBranch": "main"
+                    "internal": {
+                      "id": "${refs.iac-experiment-db-migrate-builder.id}",
+                      "branch": "main",
+                      "buildSHA": "latest"
                     }
                   },
                   "runtimeEnvironment": {},
