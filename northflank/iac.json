@@ -108,53 +108,6 @@
                 }
               },
               {
-                "kind": "DeploymentService",
-                "spec": {
-                  "deployment": {
-                    "instances": 1,
-                    "storage": {
-                      "ephemeralStorage": {
-                        "storageSize": 1024
-                      },
-                      "shmSize": 64
-                    },
-                    "docker": {
-                      "configType": "default"
-                    },
-                    "internal": {
-                      "id": "${refs.iac-experiment-web-service-builder.id}",
-                      "branch": "main",
-                      "buildSHA": "latest"
-                    }
-                  },
-                  "runtimeEnvironment": {
-                    "API_URL": "${refs.iac-experiment-api-service-deploy.ports.0.dns}"
-                  },
-                  "runtimeFiles": {},
-                  "billing": {
-                    "deploymentPlan": "nf-compute-10"
-                  },
-                  "name": "iac-experiment-web-service-deploy",
-                  "ports": [
-                    {
-                      "internalPort": 3001,
-                      "public": true,
-                      "protocol": "HTTP",
-                      "name": "p01",
-                      "domains": [],
-                      "security": {
-                        "sso": {},
-                        "policies": [],
-                        "credentials": [],
-                        "verificationMode": "or"
-                      },
-                      "disableNfDomain": false
-                    }
-                  ]
-                },
-                "ref": "iac-experiment-web-service-deploy"
-              },
-              {
                 "kind": "Addon",
                 "spec": {
                   "externalAccessEnabled": false,
@@ -305,6 +258,53 @@
                   ]
                 },
                 "ref": "iac-experiment-api-service-deploy"
+              },
+              {
+                "kind": "DeploymentService",
+                "spec": {
+                  "deployment": {
+                    "instances": 1,
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    },
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "internal": {
+                      "id": "${refs.iac-experiment-web-service-builder.id}",
+                      "branch": "main",
+                      "buildSHA": "latest"
+                    }
+                  },
+                  "runtimeEnvironment": {
+                    "API_URL": "${refs.iac-experiment-api-service-deploy.ports.0.dns}"
+                  },
+                  "runtimeFiles": {},
+                  "billing": {
+                    "deploymentPlan": "nf-compute-10"
+                  },
+                  "name": "iac-experiment-web-service-deploy",
+                  "ports": [
+                    {
+                      "internalPort": 3001,
+                      "public": true,
+                      "protocol": "HTTP",
+                      "name": "p01",
+                      "domains": [],
+                      "security": {
+                        "sso": {},
+                        "policies": [],
+                        "credentials": [],
+                        "verificationMode": "or"
+                      },
+                      "disableNfDomain": false
+                    }
+                  ]
+                },
+                "ref": "iac-experiment-web-service-deploy"
               }
             ],
             "context": {
