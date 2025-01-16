@@ -22,18 +22,6 @@ variable "availability_zones" {
   default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
-# variable "database_password" {
-#   description = "Password for RDS instance"
-#   type        = string
-#   sensitive   = true
-# }
-
-# variable "grafana_admin_password" {
-#   description = "Admin password for Grafana"
-#   type        = string
-#   sensitive   = true
-# }
-
 variable "alert_email" {
   description = "Email address for alerts"
   type        = string
