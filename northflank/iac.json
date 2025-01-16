@@ -202,7 +202,22 @@
                     "deploymentPlan": "nf-compute-10"
                   },
                   "name": "iac-experiment-api-service-deploy",
-                  "ports": []
+                  "ports": [
+                    {
+                      "internalPort": 3000,
+                      "public": true,
+                      "protocol": "HTTP",
+                      "name": "p01",
+                      "domains": [],
+                      "security": {
+                        "sso": {},
+                        "policies": [],
+                        "credentials": [],
+                        "verificationMode": "or"
+                      },
+                      "disableNfDomain": false
+                    }
+                  ]
                 },
                 "ref": "iac-experiment-api-service-deploy"
               },
