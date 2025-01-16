@@ -74,6 +74,9 @@ app.get('/', (req, res) => {
             body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
             .message-form { margin-bottom: 20px; }
             .messages { border: 1px solid #ccc; padding: 10px; }
+            .message { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+            .delete-btn { background: #ff4444; color: white; border: none; padding: 5px 10px; cursor: pointer; }
+            .delete-btn:hover { background: #cc0000; }
         </style>
     </head>
     <body>
@@ -89,9 +92,27 @@ app.get('/', (req, res) => {
         </div>
         <script>
             const API_URL = '${process.env.API_URL || 'http://localhost:3000'}';
+            
+            async function deleteMessage(id) {
+                try {
+                    const response = await fetch(\`\${API_URL}/messages/\${id}\`, {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        loadMessages();
+                    } else {
+                        console.error('Error deleting message:', await response.text());
+                    }
+                } catch (error) {
+                    console.error('Error deleting message:', error);
+                }
+            }
+
             async function postMessage() {
                 const input = document.getElementById('messageInput');
                 const message = input.value;
+                if (!message.trim()) return;
+                
                 try {
                     const response = await fetch(\`\${API_URL}/messages\`, {
                         method: 'POST',
@@ -106,18 +127,25 @@ app.get('/', (req, res) => {
                     console.error('Error posting message:', error);
                 }
             }
+
             async function loadMessages() {
                 try {
                     const response = await fetch(\`\${API_URL}/messages\`);
                     const messages = await response.json();
                     const messageList = document.getElementById('messageList');
                     messageList.innerHTML = messages
-                        .map(msg => \`<div>\${msg.content}</div>\`)
+                        .map(msg => \`
+                            <div class="message">
+                                <div>\${msg.content}</div>
+                                <button class="delete-btn" onclick="deleteMessage(\${msg.id})">Delete</button>
+                            </div>
+                        \`)
                         .join('');
                 } catch (error) {
                     console.error('Error loading messages:', error);
                 }
             }
+
             loadMessages();
         </script>
     </body>

@@ -124,7 +124,9 @@ app.post(`${basePath}/messages`, async (req, res) => {
 app.get(`${basePath}/messages`, async (req, res) => {
   const startTime = Date.now();
   try {
-    const result = await pool.query('SELECT * FROM messages ORDER BY created_at DESC');
+    const result = await pool.query(
+      'SELECT * FROM messages WHERE deleted_at IS NULL ORDER BY created_at DESC'
+    );
     
     logger.info('Messages retrieved', {
       correlationId: req.correlationId,
@@ -144,6 +146,48 @@ app.get(`${basePath}/messages`, async (req, res) => {
   } finally {
     metrics.requestDuration.observe(
       { method: 'GET', route: `/messages`, status_code: res.statusCode },
+      (Date.now() - startTime) / 1000
+    );
+  }
+});
+
+// Add this new endpoint after the existing message endpoints
+app.delete(`${basePath}/messages/:id`, async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      'UPDATE messages SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL RETURNING *',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      logger.warn('Message not found or already deleted', {
+        correlationId: req.correlationId,
+        messageId: id
+      });
+      metrics.requestCount.inc({ method: 'DELETE', route: `/messages/:id`, status_code: 404 });
+      return res.status(404).json({ error: 'Message not found' });
+    }
+    
+    logger.info('Message deleted', {
+      correlationId: req.correlationId,
+      messageId: id
+    });
+
+    metrics.requestCount.inc({ method: 'DELETE', route: `/messages/:id`, status_code: 200 });
+    res.json({ message: 'Deleted successfully' });
+  } catch (error) {
+    logger.error('Error deleting message', {
+      correlationId: req.correlationId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
+    metrics.errorCount.inc({ method: 'DELETE', route: `/messages/:id` });
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    metrics.requestDuration.observe(
+      { method: 'DELETE', route: `/messages/:id`, status_code: res.statusCode },
       (Date.now() - startTime) / 1000
     );
   }
