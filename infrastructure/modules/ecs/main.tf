@@ -312,6 +312,8 @@ resource "aws_ecs_task_definition" "api_service" {
           awslogs-stream-prefix = "ecs"
         }
       }
+      essential = true
+      imagePullPolicy = "always"
     }
   ])
 
@@ -352,6 +354,8 @@ resource "aws_ecs_task_definition" "web_service" {
           awslogs-stream-prefix = "ecs"
         }
       }
+      essential = true
+      imagePullPolicy = "always"
     }
   ])
 
