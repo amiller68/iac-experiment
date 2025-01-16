@@ -160,7 +160,7 @@ jobs:
         run: |
           terraform apply -auto-approve
         env:
-          TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
           TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
 
@@ -246,7 +246,7 @@ jobs:
           terraform apply -auto-approve \
             -target=module.ecs.aws_ecs_service.api_service
         env:
-          TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
           TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
 
@@ -270,7 +270,7 @@ jobs:
           terraform apply -auto-approve \
             -target=module.ecs.aws_ecs_service.web_service
         env:
-          TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_database_password: ${{ secrets.DATABASE_PASSWORD }}
           TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
           TF_VAR_alert_email: ${{ secrets.ALERT_EMAIL }}
 
