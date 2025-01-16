@@ -50,11 +50,11 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
-        working-directory: iac/environments/production
+        working-directory: iac/aws/environments/production
         run: terraform init
 
       - name: Setup ECR Repositories
-        working-directory: iac/environments/production
+        working-directory: iac/aws/environments/production
         run: |
           terraform apply -auto-approve \
             -target=module.ecs.aws_ecr_repository.api_service \
@@ -141,11 +141,11 @@ jobs:
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
-        working-directory: infrastructure/environments/production
+        working-directory: iac/aws/environments/production
         run: terraform init
 
       - name: Terraform Apply Infrastructure
-        working-directory: infrastructure/environments/production
+        working-directory: iac/aws/environments/production
         run: |
           terraform apply -auto-approve
         env:

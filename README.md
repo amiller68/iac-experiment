@@ -58,22 +58,24 @@ with that in mind, let's dive into the code.
 
 the project structure is a turbo monorepo structured as follows:
 
-- apps
-  - web-service
-    - a simple express frontend service that hits the api service
-  - api-service
+- src
+  - services
+    - web-service
+      - a simple express frontend service that hits the api service
+    - api-service
     - a simple express backend service that hits the database
-- packages
-  - database
-    - a lil js script for running migrations against the database
-    - eventually this could utilize a full-fledged ORM + migrations tool like Prisma (yes I know)
-    - it also contains a folder of migrations that we can run against the database
-- northflank
-  - a folder of northflank configuration files (just one for now)
-- infrastructure
-  - sum total of our terraform configuration against AWS, we'll discuss this in more detail below
-  - a folder of environment-specific configuration, 
-    - for now we just have one for production
+  - packages
+    - database
+      - a lil js script for running migrations against the database
+      - eventually this could utilize a full-fledged ORM + migrations tool like Prisma (yes I know)
+      - it also contains a folder of migrations that we can run against the database
+- iac
+  - northflank
+    - a folder of northflank template files (just one for now)
+  - aws
+    - sum total of our terraform configuration against AWS, we'll discuss this in more detail below
+    - a folder of environment-specific configuration, 
+      - for now we just have one for production
 
 ## a quick note on local development
 
@@ -121,7 +123,7 @@ NOTE: apologies if this instructions are not more specific, but I'm not exactly 
 
 The AWS deployment surface is defined entirely in terraform's DSL, HCL.
 
-Environment-specific configuration is defined in `infrastructure/environments` and any additional secrets are passed in via the github action environment secrets.
+Environment-specific configuration is defined in `iac/aws/environments` and any additional secrets are passed in via the github action environment secrets.
 
 If you are comfortable with terraform, you should be easily able to understand the structure of the terraform configuration and how it maps onto the requirements.
 
@@ -138,7 +140,7 @@ At a high level we end up with the following infrastructure:
 
 On a more granular level, our AWS infrastructure is organized into several key terraform modules, each handling a specific concern:
 
-- [data](infrastructure/modules/data/main.tf)
+- [data](/iac/aws/modules/data/main.tf)
   - manages our data layer including:
     - RDS postgres instance in private subnet
     - lambda function for running migrations + build process for the lambda function. also briefly houses the lambda function code to build the deployed artifact.
@@ -148,7 +150,7 @@ On a more granular level, our AWS infrastructure is organized into several key t
     - IAM roles and policies for database access
     - various connections to the VPC and other resources
 
-- [ecs](infrastructure/modules/ecs/main.tf)
+- [ecs](/iac/aws/modules/ecs/main.tf)
   - handles container orchestration including:
     - ECR repositories for the images we build of our services
       - this can probably be its own module
@@ -173,7 +175,7 @@ On a more granular level, our AWS infrastructure is organized into several key t
         - desired count
       - NOTE: we don't employ any auto-scaling policies here, but we could easily add them in the future.
 
-- [networking](infrastructure/modules/networking/main.tf)
+- [networking](/iac/aws/modules/networking/main.tf)
   - defines our network topology:
     - VPC with public/private subnets
     - internet and NAT gateways
@@ -183,7 +185,7 @@ On a more granular level, our AWS infrastructure is organized into several key t
       - this ensures that our internal aws services can communicate with each other without going through the public internet, which is helpful for compliance, security, and performance.
     - eip for exposing our services to the internet
 
-- [secrets](infrastructure/modules/secrets/main.tf)
+- [secrets](/iac/aws/modules/secrets/main.tf)
   - handles secrets management:
     - KMS keys for encryption
     - secrets manager secrets
