@@ -158,17 +158,7 @@ jobs:
       - name: Terraform Apply Infrastructure
         working-directory: infrastructure/environments/production
         run: |
-          terraform apply -auto-approve \
-            -target=module.networking \
-            -target=module.secrets \
-            -target=module.data \
-            -target=module.monitoring \
-            -target=module.ecs.aws_ecs_cluster.main \
-            -target=module.ecs.aws_ecs_task_definition.api_service \
-            -target=module.ecs.aws_ecs_task_definition.web_service \
-            -target=module.ecs.aws_lb.main \
-            -target=module.ecs.aws_lb_target_group.api_service \
-            -target=module.ecs.aws_lb_target_group.web_service
+          terraform apply -auto-approve
         env:
           TF_VAR_database_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_grafana_admin_password: ${{ secrets.GRAFANA_PASSWORD }}
@@ -242,6 +232,13 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/production
+        run: terraform init
 
       - name: Deploy API Service
         working-directory: infrastructure/environments/production
