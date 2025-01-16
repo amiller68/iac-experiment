@@ -12,7 +12,6 @@ jobs:
     outputs:
       api_changed: ${{ steps.filter.outputs.api }}
       web_changed: ${{ steps.filter.outputs.web }}
-      database_changed: ${{ steps.filter.outputs.database }}
     
     steps:
       - uses: actions/checkout@v3
@@ -184,26 +183,8 @@ jobs:
             --cluster ${{ vars.STAGE_NAME }}-cluster \
             --services api-service web-service
 
-  run-migrations:
-    needs: [deploy-infrastructure, check-changes]
-    runs-on: ubuntu-latest
-    environment: production
-    if: needs.check-changes.outputs.database_changed == 'true'
-    
-    permissions:
-      id-token: write
-      contents: read
-    
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-
+      # TODO: this really should be a step since we don't want to run it on every deploy
+      #  but for now this is a quick fix
       - name: Run Migrations
         run: |
           aws lambda invoke \
