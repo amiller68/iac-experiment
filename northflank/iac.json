@@ -23,6 +23,53 @@
             "type": "sequential",
             "steps": [
               {
+                "kind": "Workflow",
+                "spec": {
+                  "type": "parallel",
+                  "steps": [
+                    {
+                      "kind": "BuildService",
+                      "spec": {
+                        "buildArguments": {},
+                        "buildFiles": {},
+                        "billing": {
+                          "buildPlan": "nf-compute-400-16"
+                        },
+                        "name": "iac-experiment-api-service-builder",
+                        "vcsData": {
+                          "projectType": "github",
+                          "accountLogin": "amiller68",
+                          "projectUrl": "https://github.com/amiller68/iac-experiment"
+                        },
+                        "buildConfiguration": {
+                          "prRestrictions": [],
+                          "branchRestrictions": [
+                            "main"
+                          ]
+                        },
+                        "buildSettings": {
+                          "dockerfile": {
+                            "buildEngine": "kaniko",
+                            "useCache": false,
+                            "dockerWorkDir": "/apps/api-service",
+                            "dockerFilePath": "/apps/api-service/Dockerfile",
+                            "buildkit": {
+                              "useInternalCache": false,
+                              "internalCacheStorage": 16384
+                            }
+                          }
+                        },
+                        "disabledCI": false
+                      },
+                      "ref": "iac-experiment-api-service-builder"
+                    }
+                  ],
+                  "context": {
+                    "projectId": "${refs.iac-experiment.id}"
+                  }
+                }
+              },
+              {
                 "kind": "Addon",
                 "spec": {
                   "externalAccessEnabled": false,
@@ -130,7 +177,7 @@
                 "ref": "db-migrate"
               },
               {
-                "kind": "CombinedService",
+                "kind": "DeploymentService",
                 "spec": {
                   "deployment": {
                     "instances": 1,
@@ -142,71 +189,22 @@
                     },
                     "docker": {
                       "configType": "default"
+                    },
+                    "internal": {
+                      "id": "${refs.iac-experiment-api-service-builder.id}",
+                      "branch": "main",
+                      "buildSHA": "latest"
                     }
                   },
                   "runtimeEnvironment": {},
                   "runtimeFiles": {},
-                  "buildArguments": {},
-                  "buildFiles": {},
                   "billing": {
-                    "deploymentPlan": "nf-compute-10",
-                    "buildPlan": "nf-compute-400-16"
+                    "deploymentPlan": "nf-compute-10"
                   },
-                  "name": "ApiService",
-                  "vcsData": {
-                    "projectType": "github",
-                    "accountLogin": "amiller68",
-                    "projectUrl": "https://github.com/amiller68/iac-experiment",
-                    "projectBranch": "main"
-                  },
-                  "ports": [
-                    {
-                      "internalPort": 3000,
-                      "protocol": "HTTP",
-                      "name": "p01",
-                      "public": true,
-                      "domains": [],
-                      "security": {
-                        "policies": [],
-                        "credentials": []
-                      },
-                      "disableNfDomain": false
-                    }
-                  ],
-                  "buildSettings": {
-                    "dockerfile": {
-                      "buildEngine": "kaniko",
-                      "useCache": false,
-                      "dockerWorkDir": "/apps/api-service",
-                      "dockerFilePath": "/apps/api-service/Dockerfile",
-                      "buildkit": {
-                        "useInternalCache": false,
-                        "internalCacheStorage": 16384
-                      }
-                    }
-                  },
-                  "disabledCI": false,
-                  "buildConfiguration": {
-                    "pathIgnoreRules": [],
-                    "isAllowList": false,
-                    "ciIgnoreFlagsEnabled": false
-                  },
-                  "projectId": "${refs.iac-experiment.id}",
-                  "healthChecks": [
-                    {
-                      "type": "readinessProbe",
-                      "protocol": "HTTP",
-                      "path": "/health",
-                      "port": 3000,
-                      "initialDelaySeconds": 5,
-                      "periodSeconds": 60,
-                      "timeoutSeconds": 10,
-                      "failureThreshold": 3,
-                      "successThreshold": 1
-                    }
-                  ]
+                  "name": "iac-experiment-api-service-deploy",
+                  "ports": []
                 },
-                "ref": "apiservice"
+                "ref": "iac-experiment-api-service-deploy"
               },
               {
                 "kind": "CombinedService",
