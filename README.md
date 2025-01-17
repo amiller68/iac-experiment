@@ -217,26 +217,25 @@ In terms of maintainability, let's look at the following:
     - i'd clock the total time investment for a similar project at about 2-3 engineering days if starting from scratch with the level of experience i have coming into the project + with similar LLM assistance. 
     - Claude is apparently very well versed at both terraform and the inner workings of aws (which makes sense since there's a lot of example code out there), so it's probably possible to get this down to 1-2 engineering days with a bit more effort + more targetted requests.
 - what does the auditing process look like?
-  - what does the process look like?
-    - HCL has its quirks, but just keep the following in mind:
-      - all state can (and should / is) be managed by terraform within a bucket and some sort of shared lock. when on AWS this is S3 and DynamoDB.
-      - anything specific to an environment can be managed essentially as its own `main.tf` file with state pulled locally and persisted to the bucket.
-      - you can compose groups of resources together a module, and include modules within other modules.
-      - terraform handles state management for you, so you can just focus on defining your resources using your environment and modules, and terraform will handle the rest.
-    - auditing terraform looks and feels alot like auditing code
-      - start in your main environment, and see what modules you're sourcing, and what arguments you're passing to them
-      - audit each module for any resources it's creating and how it's interacting with other modules
-    - gauging interdependencies can get kinda crazy, but keep the following in mind:
-      - variables and outputs are all explicit, and basically no resource or environment is ever accessible to another without being explicitly defined as an input.
-      - terraform manages state for you, and part of that is resolving interdependencies.
-    - that being said, you still need to know what you're doing.
-      - you must reason about the security requirements of your application and know how to judge your HCL code accordingly.
-      - you must be confident in your ability to implement RBAC and other security policies for your team or organization.
-      - we haven't even touched on observability, monitoring, alerting, etc. ideally in addition to auditing yur HCL, you should have an understanding of what you're trying to get your infrastructure to do and gauge how well provisiioned it is.
-    - conclusion
-      - auditing for strict correctness is very doable by just relying on the terraform cli and AWS console.
-      - auditing for compliance and security is doable but should be coupled with a good understanding of best practices.
-      - auditing for performance and infrastructure requires independent solutions and domain expertise in observability and monitoring.
+  - HCL has its quirks, but just keep the following in mind:
+    - all state can (and should / is) be managed by terraform within a bucket and some sort of shared lock. when on AWS this is S3 and DynamoDB.
+    - anything specific to an environment can be managed essentially as its own `main.tf` file with state pulled locally and persisted to the bucket.
+    - you can compose groups of resources together a module, and include modules within other modules.
+    - terraform handles state management for you, so you can just focus on defining your resources using your environment and modules, and terraform will handle the rest.
+  - auditing terraform looks and feels alot like auditing code
+    - start in your main environment, and see what modules you're sourcing, and what arguments you're passing to them
+    - audit each module for any resources it's creating and how it's interacting with other modules
+  - gauging interdependencies can get kinda crazy, but keep the following in mind:
+    - variables and outputs are all explicit, and basically no resource or environment is ever accessible to another without being explicitly defined as an input.
+    - terraform manages state for you, and part of that is resolving interdependencies.
+  - that being said, you still need to know what you're doing.
+    - you must reason about the security requirements of your application and know how to judge your HCL code accordingly.
+    - you must be confident in your ability to implement RBAC and other security policies for your team or organization.
+    - we haven't even touched on observability, monitoring, alerting, etc. ideally in addition to auditing yur HCL, you should have an understanding of what you're trying to get your infrastructure to do and gauge how well provisiioned it is.
+  - conclusion
+    - auditing for strict correctness is very doable by just relying on the terraform cli and AWS console.
+    - auditing for compliance and security is doable but should be coupled with a good understanding of best practices.
+    - auditing for performance and infrastructure requires independent solutions and domain expertise in observability and monitoring.
 - what does making an infrastructure change look like?
   - this is where terraform really shines.
   - adding, modifying, or removing resources is as simple as editing the HCL file and running `terraform apply`.
@@ -273,20 +272,256 @@ In terms of maintainability, let's look at the following:
     - utilize the correct amount of compute and memory for our services
     - have appropriate auto-scaling policies in place (if required)
 
+### Notes
+
+- there are external tools and platforms for managing terraform outside of just the cli + AWS. we have not evaluated how such tools might alleviate pain points apparent here.
+
 ## Northflank
+
+read this entire section with the giant grain of salt that i've never used northflank before, and i might not be missing or paying attention to important features, products, or functionality that might alleviate some of the pain points i'm describing here.
 
 ### Setup
 
+Before you begin, you'll need:
+
+- a northflank account
+- and this repo forked into your own github account
+
+In order to deploy to northflank starting from scratch, you'll need to:
+- configure a github oauth app for northflank to use to authenticate your github. you must give this read and write access to the repository.
+- create a new template in northflank. enable git-ops and connect it to your github repository on the `main` branch and set the template to `iac/northflank/template.json`. press the `fetch` button to verify that the template is valid.
+- enable concurrency control for your template, and save the template. this should commit an update (not like we're changing anything) to repo, and start deploying a build.
+- NOTE: this workflow will create a project called `iac-experiment` in northflank. if you'd like to change this, you may by editing the workflow and changing the project name.
+
+Northflank should begin to:
+- build your api and web services, as well as migration job as containers
+- provision a postgres database
+- set up a shared secret group that exposes your postgres URI to the rest of your services and jobs
+- run migrations against the database as a manual job
+- deploy the api service exposed to the internet under a random and persistent domain name
+- deploy the web service exposed to the internet under a random and persistent domain name (this should look logically related to the api servic)
+
 ### IaC
+
+Northflank provides its own DSL for defining infrastructure on their platform. 
+It allows us to:
+- define workflows that provision infrastructure and deploy services and jobs
+- pass in arguments at runtime that modify the behavior of the workflow, similar to terraform variables
+
+I didn't try this but you could use this to define different environments in much the same way you would with terraform (just might require a bit more hacking).
+
+The DSL itself is pretty simple, if maybe not a little hard to get used to. the template i generated using their web UI is described in a single [json file](/iac/northflank/template.json). Instead of being able to explicitly distinct define inputs and outputs, relations between modules, and organize components however I see fit, our templates play out a single workflow that sets up builds, provisions infrastructure, and deployed jobs and services.
+
+On that note, I found myself not even really trying to use the DSL at all, and instead relied almost entirely on the UI to set up my infrastructure. There are a couple of reasons I think this is the case:
+- I don't know the DSL well enough to be productive with it yet
+- the DSL is not as well documented as terraform's DSL for AWS. Rather than relying on an LLM to help me understand the DSL, I found it easier to just stick to the padded walls of the UI.
+- looking at one big json file and not being able to compose my infrastructure into modules made me feel a bit disorganized.
+- the DSL is not declarative, so I couldn't easily test and plan my infrastructure changes prior to committing them to the repo.
 
 ### Structure
 
+At a high level, we end up with the following infrastructure:
+
+- a vpc (i think) to host our services and jobs and addons
+- a postgres database
+- a shared secret group that exposes your postgres URI to the rest of your services and jobs
+- a migration job that runs migrations against the database
+- an api service exposed to the internet
+- and a web service exposed to the internet
+
+Behind the scenes Northflank is provisioning and managing k8s for us, and we just get to deploy our services to it without setting up things like:
+- security groups
+- load balancers
+- task definitions
+- etc
+
+Our workflow orchestrates the following:
+- creates a project in which to deploy our infrastructure
+- defines a parallel workflow that:
+  - builds our api and web services as containers, as well as a migration job
+- provisions a postgres database
+- creates a shared secret group that exposes your postgres URI to the rest of your services and jobs
+- creates a migration job that runs our migrations container as a job
+- creates an api service exposed to the internet
+- creates a web service exposed to the internet
+
 ### Maintainability
+
+- how much work did it take to get to a working state?
+  - time
+    - setting up a simple deployment with no IaC and where i manually ran migrations took about 1-2 hours.
+    - setting up a simple template in the northflank web UI with migrations run as a job took about 4-6 hours of trial and error.
+    - i messed around with pipelines and the DSL for another hour or so, but lets just call that a wash and ignore it.
+  - effort
+    - i didn't have to write a single line of DSL or git workflow code.
+    - i spent a lot of time reading docs and trying to figure out best practices for using Northflank.
+    - it doesn't seem like there are a ton of different ways to do or organize projects and workflows in Northflank, which definitely removed some cognitive overhead.
+  - conclusion
+    - i'd clock the total time investment for a similar project at an engineering day or less in order to get a simple, single environment deployment working starting from scratch.
+    - i'm certain there are features in which i am not accounting for that possibly would've made things easier / allowed me to be more expressive.
+- what does the auditing process look like?
+  - NOTE: preface this by saying maybe i just have skill issues
+  - non declarative IaC is hard to audit
+    - as far as i know, there's no equivalent to terraform's `terraform plan` that will tell you what northflank is going to do before you commit your changes.
+    - the order in which you define resources in your workflow is important, as norhtflank doesn't create a graph structure that defines the interdependencies between resources.
+    - you can use references to resources in your workflow, but you must do so in a logical order:
+      - example: it wasn't intuitive to me that if i wanted to use my api service's url as an environment variable for my web service, i couldn't just reference the api service's url in the web service's environment variables section. i had to first define the deployment of my api service, and then reference it in the web service's environment variables section.
+    - references to environment variables are not necessarily explicit, so you kinda need to remember what you've already defined
+      - example: consider the following section of the workflow:
+        ```json
+        {
+                "kind": "SecretGroup",
+                "spec": {
+                  "type": "secret",
+                  "secretType": "environment-arguments",
+                  "priority": 10,
+                  "secrets": {
+                    "variables": {},
+                    "files": {}
+                  },
+                  "addonDependencies": [
+                    {
+                      "addonId": "${refs.postgres.id}",
+                      "keys": [
+                        {
+                          "keyName": "POSTGRES_URI",
+                          "aliases": [
+                            "DB_URI"
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "name": "SecretGroup",
+                  "restrictions": {
+                    "restricted": false,
+                    "nfObjects": [],
+                    "tags": []
+                  },
+                  "projectId": "${refs.iac-experiment.id}"
+                },
+                "ref": "secretgroup"
+              },
+        ```
+        
+        Here we're declaring a secret group that references the `postgres` addon, and creates an environment variable `DB_URI` that is set to the postgres URI.
+        Any service or job (that comes after the secret group in the workflow) may reference that environment variable.
+
+        This is probably not a big deal, but in my opinion it makes it kinda of hard to evaluate whether or not when we define our api service deployment later in the workflow, we have access to the `DB_URI` environment variable:
+
+        ```json
+              {
+                "kind": "DeploymentService",
+                "spec": {
+                  "deployment": {
+                    "instances": 1,
+                    "storage": {
+                      "ephemeralStorage": {
+                        "storageSize": 1024
+                      },
+                      "shmSize": 64
+                    },
+                    "docker": {
+                      "configType": "default"
+                    },
+                    "internal": {
+                      "id": "${refs.iac-experiment-api-service-builder.id}",
+                      "branch": "main",
+                      "buildSHA": "latest"
+                    }
+                  },
+                  "runtimeEnvironment": {},
+                  "runtimeFiles": {},
+                  "billing": {
+                    "deploymentPlan": "nf-compute-10"
+                  },
+                  "name": "iac-experiment-api-service-deploy",
+                  "ports": [
+                    {
+                      "internalPort": 3000,
+                      "public": true,
+                      "protocol": "HTTP",
+                      "name": "p01",
+                      "domains": [],
+                      "security": {
+                        "sso": {},
+                        "policies": [],
+                        "credentials": [],
+                        "verificationMode": "or"
+                      },
+                      "disableNfDomain": false
+                    }
+                  ]
+                },
+                "ref": "iac-experiment-api-service-deploy"
+              },
+        ```
+        My intuition looking at this (and this issue is replicated in the web UI) is that this container would not have access to the `DB_URI` environment variable, as it's defined after the secret group. Yet, in fact, it does.
+
+        I spent a solid half hour / hour combing through the docs trying to understand this relationship before I just deployed the workflow and saw that it worked.
+  - BUT once you learn the quirks of how northflank works, it's pretty easy to see both the status of your workflow and the state of your infrastructure in the UI:
+    - you can play around with you're template in a kinda WYSIWYG way by dragging and dropping resources into your workflow
+    - everything is nicely organized by projects, so you're only ever a few clicks away from observing logs, metrics, and other resources
+  - conclusion
+    - non declarative IaC is a big pain point
+    - this is somewhat mitigated by having a nice UI
+- what does making an infrastructure change look like?
+  - NOTE: there are probably neat things that you can script for pipelines and releases, but i didn't figure out how those work
+  - updating the template either in the UI or in the repository triggers a new build of your infrastructure
+  - i can't really speak or otherwise evaluate a process surrounding editing the DSL directly within the repository:
+    - i didn't have success using it
+    - the DSL seems difficient in comparison to terraform's
+    - LLMs are not going to be nearly as helpful as they are with terraform, as the DSL is not as well documented nor are there as many examples using it
+  - in theory, small changes such as updating arguments or reconfiguring a service would be easy to do in the DSL, and this could fit into a propper git workflow as part of a PR
+  - however you won't get the same level of feedback as you would running `terraform plan`
+  - conclusion
+    - you're probably going to end up clicking around the UI to make changes to your infrastructure
+    - but you certainly can make changes to the DSL directly within the repository similar to how you would with terraform
+- what exactly do we need to keep maintaining in the long run?
+  - as awlays, you'll need to do regualr security audits of your dependencies and builds (this is just part of being a software developer)
+  - we don't really need to reason about add-on security patches, as northflank will handle that for us
+  - we don't really need to reason about RBAC, as northflank will handle that for us
+  - we don't really need to put effort into setting up observability, as northflank will handle that for us
+  - we just have to reason about compute and memory for our services and jobs and sensible policies for scaling
+
+### Notes
+
+- i'm sure that a [pipeline](https://northflank.com/docs/v1/application/release/create-a-pipeline-and-release-flow#automatically-run-a-release-flow) could have been useful in orchestrating / defining our workflow, especially against different environments, but for the life of me i couldn't figure out how to get it to work.
+
+- it seems like the web ui is somewhat difficient in comparison to the very expansive API and CLI that the northflank team has built out.
 
 ## Conclusion
 
-## notes / considerations
+i think it makes sense to start by comparing our two strategies along the same axes we evaluated them on:
+
+- setup
+  - this is an easy win for northflank, the time to a PoC single environment deployment is about 1 engineering day or less, as compared to 2-3 engineering days for terraform.
+- iac
+  - terraform is a clear winner here, as it's a declarative language that allows you to plan and preview your infrastructure changes before committing them to the repo.
+  - northflank is not declarative, so you can't really plan your infrastructure changes before committing them to the repo.
+- structure
+  - there's not a clear winner here
+  - terraform allows you to compose your infrastructure into modules and manage state in a single bucket. it allows for high levels of expressivity and customization.
+  - that expressivity has a price, as terraform is orders of magnitude more complex than northflank's DSL. we had to set up VPCs, security groups, IAM roles, etc. This is not an undertaking for the faint of heart OR anyone who hasn't already cut their teeth on AWS.
+  - our terraform codebase clocks in at almost 1400 lines of HCL
+  - northflank cuts out a lot of unneccesary complexity setting up networking, security groups, etc.
+  - our northflank template clocks in at about 400 lines of JSON
+    - (honestly that seems kinda verbose for what we actually customize in our infrastructure)
+- maintainability
+  - AWS-IaC can be a bit of a beast, and, if not a full time dev ops engineer, you're probably going someone on your team to own it.
+  - northflank is a bit easier to maintain, as it's a bit more opinionated and doesn't require as much setup. devs can just focus on writing code and not worry about the underlying infrastructure.
+  - with AWS-IaC, you're going to need to have a good understanding of the infrastructure and how it's composed. but having that will enable you a lot more flexibility and customization if that's what you need. If you're after specific aws resources as well (such as SES, cloudfront, etc) then not having to manage that through a northflank integration might be a solid reason to go with terraform.
+  - northflank is more restrictive, but will probably meet 80% of your needs out of the box without much work or wrangling. you might have to do a bit more work reading docs and figuring out how to do things if you're already familiar with aws and setting up your own deployments.
+
+## other notes / considerations
 
 - we're not at all testing how to manage multiple environments or deploy pipelines here! both are enitrely possible with both strategies, but we have not evaluated how big of a pain it is to do so.
 
-- there are external tools and platforms for managing terraform outside of just the cli + AWS. we have not evaluated how such tools might alleviate pain points apparent here.
+- my motivation in expoloring both of these strategies is very conciously oriented towards scale and access to specific aws / northflank resources. you should dismiss both of these solutions out of hand if either:
+  - scaling
+  - or access to specific aws / northflank resources
+
+  are not *well motivated, sensible, or otherwise necessary* requirements for your project. at best, go setup a persistent ec2 and a docker composition and call it a day. i'm a big advocate of [kamal](https://kamal-deploy.org/) for just this reason.
+ 
+
+

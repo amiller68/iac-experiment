@@ -51,8 +51,8 @@
                           "dockerfile": {
                             "buildEngine": "kaniko",
                             "useCache": false,
-                            "dockerWorkDir": "/apps/api-service",
-                            "dockerFilePath": "/apps/api-service/Dockerfile",
+                            "dockerWorkDir": "/src/services/api-service",
+                            "dockerFilePath": "/src/services/api-service/Dockerfile",
                             "buildkit": {
                               "useInternalCache": false,
                               "internalCacheStorage": 16384
@@ -89,8 +89,8 @@
                           "dockerfile": {
                             "buildEngine": "kaniko",
                             "useCache": false,
-                            "dockerWorkDir": "/apps/web-service",
-                            "dockerFilePath": "/apps/web-service/Dockerfile",
+                            "dockerWorkDir": "/src/services/web-service",
+                            "dockerFilePath": "/src/services/web-service/Dockerfile",
                             "buildkit": {
                               "useInternalCache": false,
                               "internalCacheStorage": 16384
@@ -127,8 +127,8 @@
                           "dockerfile": {
                             "buildEngine": "kaniko",
                             "useCache": false,
-                            "dockerWorkDir": "/packages/database",
-                            "dockerFilePath": "/packages/database/Dockerfile",
+                            "dockerWorkDir": "/src/packages/database",
+                            "dockerFilePath": "/src/packages/database/Dockerfile",
                             "buildkit": {
                               "useInternalCache": false,
                               "internalCacheStorage": 16384
@@ -235,8 +235,8 @@
                     "dockerfile": {
                       "buildEngine": "kaniko",
                       "useCache": false,
-                      "dockerWorkDir": "/packages/database",
-                      "dockerFilePath": "/packages/database/Dockerfile",
+                      "dockerWorkDir": "/src/packages/database",
+                      "dockerFilePath": "/src/packages/database/Dockerfile",
                       "buildkit": {
                         "useInternalCache": false,
                         "internalCacheStorage": 16384
