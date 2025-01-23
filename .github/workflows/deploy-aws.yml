@@ -3,7 +3,8 @@ name: Deploy Infrastructure and Services
 on:
   push:
     branches:
-      - main
+    # NOTE: we destroyed this infra to stop paying for it
+    # - main
   workflow_dispatch:
 
 jobs:

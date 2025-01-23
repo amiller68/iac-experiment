@@ -13,8 +13,8 @@ and infrastructure following both strategies. We'll end up with the following co
 
 Check out the live versions of the services here:
 
-- [AWS](http://production-alb-2085663325.us-east-1.elb.amazonAWS.com/)
-- [Northflank](https://p01--webservice--hzgwn22qv6ml.code.run/)
+- [aws (deprectaed, didn't wanna keep paying for it)](http://production-alb-2085663325.us-east-1.elb.amazonaws.com/)
+- [northflank](https://p01--webservice--hzgwn22qv6ml.code.run/)
 
 ## a note on my background and motivation
 
